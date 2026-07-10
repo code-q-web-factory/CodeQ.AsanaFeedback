@@ -24,7 +24,7 @@
             <trans-unit id="descriptionPlaceholder" xml:space="preserve"><source>Describe the issue or your suggestion …</source></trans-unit>
             <trans-unit id="authorLabel" xml:space="preserve"><source>Your name</source></trans-unit>
             <trans-unit id="authorPlaceholder" xml:space="preserve"><source>e.g. Jane Doe</source></trans-unit>
-            <trans-unit id="assigneeLabel" xml:space="preserve"><source>Asana assignee (optional)</source></trans-unit>
+            <trans-unit id="assigneeLabel" xml:space="preserve"><source>Assignee (optional)</source></trans-unit>
             <trans-unit id="assigneeNone" xml:space="preserve"><source>No assignee</source></trans-unit>
             <trans-unit id="submit" xml:space="preserve"><source>Send feedback</source></trans-unit>
             <trans-unit id="cancel" xml:space="preserve"><source>Cancel</source></trans-unit>

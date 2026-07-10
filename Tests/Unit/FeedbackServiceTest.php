@@ -20,8 +20,8 @@ class FeedbackServiceTest extends TestCase
         $this->feedbackService = new FeedbackService();
         $this->inject('settings', [
             'assignees' => [
-                'roland' => ['label' => 'Roland', 'asanaUserGid' => '422230010221'],
-                'yurii' => ['label' => 'Yurii', 'asanaUserGid' => '510973132418883'],
+                'roland' => ['label' => 'Roland', 'asanaUserGid' => '422230010221', 'visibleToClient' => true],
+                'yurii' => ['label' => 'Yurii', 'asanaUserGid' => '510973132418883', 'visibleToClient' => false],
             ],
         ]);
     }
@@ -40,17 +40,21 @@ class FeedbackServiceTest extends TestCase
         return $method->invokeArgs($this->feedbackService, $arguments);
     }
 
-    public function testAssigneeIsIgnoredForNonTeamMembers(): void
+    public function testClientVisibleAssigneeIsMappedForEveryone(): void
     {
-        self::assertNull($this->invoke('resolveAssigneeGid', ['roland', false]));
-    }
-
-    public function testValidAssigneeIsMappedToAsanaUserGidForTeamMembers(): void
-    {
+        self::assertSame('422230010221', $this->invoke('resolveAssigneeGid', ['roland', false]));
         self::assertSame('422230010221', $this->invoke('resolveAssigneeGid', ['roland', true]));
     }
 
-    public function testUnknownAssigneeIsRejectedForTeamMembers(): void
+    public function testInternalAssigneeIsMappedForTeamMembersOnly(): void
+    {
+        self::assertSame('510973132418883', $this->invoke('resolveAssigneeGid', ['yurii', true]));
+
+        $this->expectException(ValidationException::class);
+        $this->invoke('resolveAssigneeGid', ['yurii', false]);
+    }
+
+    public function testUnknownAssigneeIsRejected(): void
     {
         $this->expectException(ValidationException::class);
         $this->invoke('resolveAssigneeGid', ['someone-else', true]);

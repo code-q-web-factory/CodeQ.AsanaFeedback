@@ -81,18 +81,23 @@ CodeQ:
       - 'felix.gradinaru'
 
     # Selectable Asana assignees; keys are stable identifiers submitted by
-    # the widget and validated server-side against this list. Yurii has no
-    # Neos account but can be assigned.
+    # the widget and validated server-side against this list. Entries with
+    # "visibleToClient: true" can be selected by every user, the others
+    # only by recognized Code Q team members. Yurii has no Neos account
+    # but can be assigned.
     assignees:
       roland:
         label: 'Roland'
         asanaUserGid: '422230010221'
         avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
+        visibleToClient: true
       felix:
         label: 'Felix'
         asanaUserGid: '1199657890349514'
         avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/felix.jpg'
+        visibleToClient: true
       yurii:
         label: 'Yurii'
         asanaUserGid: '510973132418883'
         avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/yurii.jpg'
+        visibleToClient: false

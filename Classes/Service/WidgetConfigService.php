@@ -72,7 +72,7 @@ class WidgetConfigService
                 'authorName' => $userContext['authorName'],
                 'isTeamMember' => $userContext['isTeamMember'],
             ],
-            'assignees' => $userContext['isTeamMember'] ? $this->userContextService->getAssigneesForWidget() : [],
+            'assignees' => $this->userContextService->getAssigneesForWidget($userContext['isTeamMember']),
             'limits' => [
                 'screenshotBytes' => (int)($this->limits['screenshotBytes'] ?? 10485760),
                 'videoBytes' => (int)($this->limits['videoBytes'] ?? 100000000),

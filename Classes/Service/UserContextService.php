@@ -93,15 +93,20 @@ class UserContextService
     }
 
     /**
-     * Selectable assignees for the widget UI. Only labels, stable keys and
-     * avatar URIs are exposed; Asana user GIDs stay on the server.
+     * Selectable assignees for the widget UI. Team members can pick every
+     * configured assignee, everyone else only those flagged with
+     * "visibleToClient". Only labels, stable keys and avatar URIs are
+     * exposed; Asana user GIDs stay on the server.
      *
      * @return array<int, array{key: string, label: string, avatarUri: ?string}>
      */
-    public function getAssigneesForWidget(): array
+    public function getAssigneesForWidget(bool $includeInternalOnly): array
     {
         $assignees = [];
         foreach (($this->settings['assignees'] ?? []) as $key => $assignee) {
+            if (!$includeInternalOnly && ($assignee['visibleToClient'] ?? false) !== true) {
+                continue;
+            }
             $avatarUri = null;
             if (!empty($assignee['avatar'])) {
                 $avatarUri = $this->resourceManager->getPublicPackageResourceUriByPath($assignee['avatar']);

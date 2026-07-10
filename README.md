@@ -17,8 +17,11 @@ technical browser context. It replaces Marker.io for this use case.
   resolved by name (configurable candidate list, e.g. `Todo`) or by fixed GID
 - Logged-in Neos users are identified server side; their display name is used
   as author and cannot be overridden by the browser
-- Members of the internal Code Q team (server side allowlist) can assign the
-  task to a configured Asana user and get the task link after submission
+- Every user can set an optional task title (otherwise the task is named
+  after the description) and assign the task to a client visible assignee
+  ("visibleToClient: true"); members of the internal Code Q team (server
+  side allowlist) can pick every configured assignee and get the task link
+  after submission
 - Frontend availability is controlled per deployment context via
   `enableInFrontend`; the decision is cached with the page, so disabled
   sites stay fully cacheable

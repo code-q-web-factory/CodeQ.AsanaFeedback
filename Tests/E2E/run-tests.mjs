@@ -90,7 +90,7 @@ async function drawAllAnnotations(page) {
     await page.waitForTimeout(300);
 }
 
-async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectAssigneeUi, expectTaskLink }) {
+async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectedAssigneeCount, expectTaskLink }) {
     await page.locator('.cqaf-fab').waitFor({ state: 'visible', timeout: 20000 });
     await page.click('.cqaf-fab');
 
@@ -106,12 +106,10 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     if (!(await page.locator('.cqaf-form__preview').isVisible())) throw new Error('screenshot preview missing');
 
     const assigneeCount = await page.locator('.cqaf-assignee').count();
-    if (expectAssigneeUi && assigneeCount !== 3) throw new Error(`expected 3 assignees, saw ${assigneeCount}`);
-    if (!expectAssigneeUi && assigneeCount !== 0) throw new Error(`assignee UI visible for non-team user (${assigneeCount})`);
+    if (assigneeCount !== expectedAssigneeCount) throw new Error(`expected ${expectedAssigneeCount} assignees, saw ${assigneeCount}`);
 
     const titleFieldCount = await page.locator('#cqaf-title').count();
-    if (expectAssigneeUi && titleFieldCount !== 1) throw new Error('title field missing for team member');
-    if (!expectAssigneeUi && titleFieldCount !== 0) throw new Error('title field visible for non-team user');
+    if (titleFieldCount !== 1) throw new Error('title field missing');
     if (title) await page.fill('#cqaf-title', title);
 
     await page.fill('#cqaf-description', description);
@@ -188,14 +186,21 @@ for (const [engineName, engine] of Object.entries(engines)) {
     await testScenario(`${engineName}-anonymous`, engine, async (page) => {
         await page.goto(BASE, { waitUntil: 'load' });
         const marker = `${RUN_MARKER}-${engineName}-anon`;
+        const anonymousTitle = engineName === 'chromium' ? `Anon Custom Title ${marker}` : null;
         await runFeedbackFlow(page, {
             description: `E2E Test anonym (${engineName}) ${marker}`,
+            title: anonymousTitle,
             authorName: 'E2E Testbot',
-            assigneeKey: null,
-            expectAssigneeUi: false,
+            assigneeKey: engineName === 'chromium' ? 'felix' : null,
+            expectedAssigneeCount: 2,
             expectTaskLink: false,
         });
-        const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'E2E Testbot', expectedAssigneeName: null });
+        const verification = await verifyTaskInAsana({
+            marker,
+            expectedAuthor: 'E2E Testbot',
+            expectedAssigneeName: engineName === 'chromium' ? 'Felix Gradinaru' : null,
+            ...(anonymousTitle ? { expectedTaskName: anonymousTitle } : {}),
+        });
         log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
     });
 }
@@ -209,7 +214,7 @@ await testScenario('chromium-admin-non-team', chromium, async (page) => {
         description: `E2E Test angemeldet ohne Team (${marker})`,
         authorName: null,
         assigneeKey: null,
-        expectAssigneeUi: false,
+        expectedAssigneeCount: 2,
         expectTaskLink: false,
     });
     const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Admin Admin', expectedAssigneeName: null });
@@ -226,7 +231,7 @@ await testScenario('chromium-team-roland', chromium, async (page) => {
         title: customTitle,
         authorName: null,
         assigneeKey: 'yurii',
-        expectAssigneeUi: true,
+        expectedAssigneeCount: 3,
         expectTaskLink: true,
     });
     const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeName: 'Yurii Kosynets', expectedTaskName: customTitle });

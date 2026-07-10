@@ -117,22 +117,19 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             alt: labels.screenshotPreviewAlt,
         });
 
-        // team members may name the Asana task themselves
-        let titleField = null;
-        let titleRow = null;
-        if (config.user.isTeamMember) {
-            titleField = h('input', {
-                className: 'cqaf-input',
-                id: 'cqaf-title',
-                type: 'text',
-                maxlength: 200,
-                placeholder: labels.titlePlaceholder,
-            });
-            titleRow = h('div', { className: 'cqaf-field' }, [
-                h('label', { className: 'cqaf-label', for: 'cqaf-title' }, [labels.titleLabel]),
-                titleField,
-            ]);
-        }
+        // every user may name the Asana task; without a title the task is
+        // named after the description
+        const titleField = h('input', {
+            className: 'cqaf-input',
+            id: 'cqaf-title',
+            type: 'text',
+            maxlength: 200,
+            placeholder: labels.titlePlaceholder,
+        });
+        const titleRow = h('div', { className: 'cqaf-field' }, [
+            h('label', { className: 'cqaf-label', for: 'cqaf-title' }, [labels.titleLabel]),
+            titleField,
+        ]);
 
         const descriptionField = h('textarea', {
             className: 'cqaf-input cqaf-input--textarea',
@@ -170,10 +167,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             );
         }
 
-        // assignee selection exists only for recognized Code Q team members
+        // the server decides which assignees the current user may pick
         let selectedAssignee = { key: '' };
         let assigneeRow = null;
-        if (config.user.isTeamMember && config.assignees.length > 0) {
+        if (config.assignees.length > 0) {
             const assigneeButtons = [];
             const makeAssigneeButton = (assignee, children) => {
                 const button = h('button', {
@@ -345,7 +342,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
             try {
                 const result = await submitFeedback({
-                    title: titleField ? titleField.value : '',
+                    title: titleField.value,
                     description,
                     authorName: authorField ? authorField.value : '',
                     assigneeKey: selectedAssignee.key,

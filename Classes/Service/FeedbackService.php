@@ -99,10 +99,7 @@ class FeedbackService
 
         $assigneeGid = $this->resolveAssigneeGid($submission['assigneeKey'] ?? null, $userContext['isTeamMember']);
 
-        // only team members may name the task themselves
-        $title = $userContext['isTeamMember']
-            ? $this->sanitizeSingleLine((string)($submission['title'] ?? ''), 200)
-            : '';
+        $title = $this->sanitizeSingleLine((string)($submission['title'] ?? ''), 200);
 
         if ($screenshot === null || $screenshot->getError() !== UPLOAD_ERR_OK) {
             throw new ValidationException('The screenshot is missing or the upload failed.', 1752130013);
@@ -216,8 +213,9 @@ class FeedbackService
     }
 
     /**
-     * Validates the submitted assignee key against team status and the
-     * configured allowlist and maps it to the Asana user GID.
+     * Validates the submitted assignee key against the configured allowlist
+     * and maps it to the Asana user GID. Team members may pick every entry,
+     * everyone else only those flagged with "visibleToClient".
      */
     protected function resolveAssigneeGid(?string $assigneeKey, bool $isTeamMember): ?string
     {
@@ -226,14 +224,12 @@ class FeedbackService
             return null;
         }
 
-        // non team members must not assign anyone, their value is discarded
-        if (!$isTeamMember) {
-            return null;
-        }
-
         $assignees = $this->settings['assignees'] ?? [];
         if (!isset($assignees[$assigneeKey]['asanaUserGid'])) {
             throw new ValidationException('The selected assignee is not allowed.', 1752130017);
+        }
+        if (!$isTeamMember && ($assignees[$assigneeKey]['visibleToClient'] ?? false) !== true) {
+            throw new ValidationException('The selected assignee is not allowed.', 1752130021);
         }
 
         return (string)$assignees[$assigneeKey]['asanaUserGid'];
