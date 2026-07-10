@@ -1,5 +1,7 @@
 # CodeQ.AsanaFeedback
 
+# WIP This is currently tailored to the use cases for Code Q, feel free to fork your own version of add PRs
+
 A reusable Neos CMS package that adds a visual feedback widget to the rendered
 website. Visitors capture a screenshot of the current page, annotate it
 (freehand, rectangle, arrow, text, undo/redo, delete), give the report a
