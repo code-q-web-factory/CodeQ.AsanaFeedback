@@ -104,3 +104,13 @@ CodeQ:
         asanaUserGid: '510973132418883'
         avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/yurii.jpg'
         visibleToClient: false
+      arvin:
+        label: 'Arvin'
+        asanaUserGid: '1213418029127040'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/arvin.jpeg'
+        visibleToClient: false
+      dion:
+        label: 'Dion'
+        asanaUserGid: '1215306059024724'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/dion.webp'
+        visibleToClient: true
