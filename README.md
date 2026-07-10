@@ -156,6 +156,21 @@ CodeQ:
         asanaUserGid: '510973132418883'
         avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/yurii.jpg'
         visibleToClient: false
+      daniel:
+        label: 'Daniel'
+        asanaUserGid: '240050036824008'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/daniel.jpg'
+        visibleToClient: false
+      clara:
+        label: 'Clara'
+        asanaUserGid: '1210155270823988'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/clara.jpeg'
+        visibleToClient: true
+      michael:
+        label: 'Michael'
+        asanaUserGid: '778955489601506'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/michael.jpeg'
+        visibleToClient: true
       arvin:
         label: 'Arvin'
         asanaUserGid: '1213418029127040'
@@ -164,7 +179,7 @@ CodeQ:
       dion:
         label: 'Dion'
         asanaUserGid: '1215306059024724'
-        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/dion.webp'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/dion.jpg'
         visibleToClient: true
 ```
 

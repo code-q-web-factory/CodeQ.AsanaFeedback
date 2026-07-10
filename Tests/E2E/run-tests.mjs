@@ -194,7 +194,7 @@ for (const [engineName, engine] of Object.entries(engines)) {
             title: anonymousTitle,
             authorName: 'E2E Testbot',
             assigneeKey: engineName === 'chromium' ? 'felix' : null,
-            expectedAssigneeCount: 3,
+            expectedAssigneeCount: 5,
             expectTaskLink: false,
         });
         const verification = await verifyTaskInAsana({
@@ -216,7 +216,7 @@ await testScenario('chromium-admin-non-team', chromium, async (page) => {
         description: `E2E Test angemeldet ohne Team (${marker})`,
         authorName: null,
         assigneeKey: null,
-        expectedAssigneeCount: 3,
+        expectedAssigneeCount: 5,
         expectTaskLink: false,
     });
     const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Admin Admin', expectedAssigneeGid: ROLAND_GID });
@@ -233,7 +233,7 @@ await testScenario('chromium-team-roland', chromium, async (page) => {
         title: customTitle,
         authorName: null,
         assigneeKey: 'yurii',
-        expectedAssigneeCount: 5,
+        expectedAssigneeCount: 8,
         expectTaskLink: true,
     });
     const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeGid: YURII_GID, expectedTaskName: customTitle });
