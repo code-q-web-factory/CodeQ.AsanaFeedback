@@ -1,0 +1,63 @@
+##
+# Injects the feedback widget into every rendered page right before the
+# closing body tag. The decision whether the widget is shown is made per
+# request inside an uncached segment, so the content cached page markup
+# never contains user specific data and anonymous visitors receive no
+# widget code at all while the feature is disabled for them.
+#
+prototype(Neos.Neos:Page) {
+    @process.codeQAsanaFeedback = CodeQ.AsanaFeedback:Integration.PageProcessor
+}
+
+prototype(CodeQ.AsanaFeedback:Integration.PageProcessor) < prototype(Neos.Fusion:Component) {
+    page = ${value}
+    widget = CodeQ.AsanaFeedback:Integration.WidgetInjection
+    renderer = ${String.replace(props.page, '</body>', props.widget + '</body>')}
+}
+
+prototype(CodeQ.AsanaFeedback:Integration.WidgetInjection) < prototype(Neos.Fusion:Component) {
+    # evaluated on every request so login state and configuration decide
+    # server side whether widget markup is delivered
+    @cache {
+        mode = 'uncached'
+        context {
+            1 = 'node'
+            2 = 'documentNode'
+            3 = 'site'
+        }
+    }
+
+    renderer = Neos.Fusion:Case {
+        widgetEnabled {
+            # never render inside the Neos backend editing iframe
+            condition = ${!documentNode.context.inBackend && AsanaFeedback.isWidgetEnabled()}
+            renderer = CodeQ.AsanaFeedback:Integration.Widget
+        }
+        default {
+            condition = true
+            renderer = ''
+        }
+    }
+}
+
+prototype(CodeQ.AsanaFeedback:Integration.Widget) < prototype(Neos.Fusion:Component) {
+    submitUri = Neos.Fusion:ActionUri {
+        package = 'CodeQ.AsanaFeedback'
+        controller = 'Feedback'
+        action = 'submit'
+        format = 'json'
+    }
+    configJson = ${AsanaFeedback.widgetConfig(String.toString(documentNode.context.targetDimensions.language) || 'en', this.submitUri)}
+    styleUri = Neos.Fusion:ResourceUri {
+        path = 'resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css'
+    }
+    scriptUri = Neos.Fusion:ResourceUri {
+        path = 'resource://CodeQ.AsanaFeedback/Public/Scripts/Widget.js'
+    }
+
+    renderer = afx`
+        <script type="application/json" id="codeq-asana-feedback-config">{props.configJson}</script>
+        <link rel="stylesheet" href={props.styleUri} />
+        <script src={props.scriptUri} defer="defer"></script>
+    `
+}

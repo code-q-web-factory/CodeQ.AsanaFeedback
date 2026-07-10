@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file original="" product-name="CodeQ.AsanaFeedback" source-language="en" target-language="de" datatype="plaintext">
+        <body>
+            <trans-unit id="buttonLabel" xml:space="preserve"><source>Feedback</source><target>Feedback</target></trans-unit>
+            <trans-unit id="panelTitle" xml:space="preserve"><source>Give feedback</source><target>Feedback geben</target></trans-unit>
+            <trans-unit id="introText" xml:space="preserve"><source>Capture a screenshot of the current page, annotate it and describe your feedback.</source><target>Erstelle einen Screenshot der aktuellen Seite, markiere Stellen und beschreibe dein Feedback.</target></trans-unit>
+            <trans-unit id="captureScreenshot" xml:space="preserve"><source>Capture screenshot</source><target>Screenshot erstellen</target></trans-unit>
+            <trans-unit id="capturing" xml:space="preserve"><source>Capturing screenshot …</source><target>Screenshot wird erstellt …</target></trans-unit>
+            <trans-unit id="annotateTitle" xml:space="preserve"><source>Annotate screenshot</source><target>Screenshot annotieren</target></trans-unit>
+            <trans-unit id="toolSelect" xml:space="preserve"><source>Select</source><target>Auswählen</target></trans-unit>
+            <trans-unit id="toolPen" xml:space="preserve"><source>Freehand</source><target>Freihand</target></trans-unit>
+            <trans-unit id="toolRect" xml:space="preserve"><source>Rectangle</source><target>Rechteck</target></trans-unit>
+            <trans-unit id="toolArrow" xml:space="preserve"><source>Arrow</source><target>Pfeil</target></trans-unit>
+            <trans-unit id="toolText" xml:space="preserve"><source>Text</source><target>Text</target></trans-unit>
+            <trans-unit id="undo" xml:space="preserve"><source>Undo</source><target>Rückgängig</target></trans-unit>
+            <trans-unit id="redo" xml:space="preserve"><source>Redo</source><target>Wiederholen</target></trans-unit>
+            <trans-unit id="deleteAnnotation" xml:space="preserve"><source>Remove selection</source><target>Auswahl entfernen</target></trans-unit>
+            <trans-unit id="continueButton" xml:space="preserve"><source>Continue</source><target>Weiter</target></trans-unit>
+            <trans-unit id="retakeScreenshot" xml:space="preserve"><source>Retake screenshot</source><target>Screenshot neu erstellen</target></trans-unit>
+            <trans-unit id="descriptionLabel" xml:space="preserve"><source>Description</source><target>Beschreibung</target></trans-unit>
+            <trans-unit id="descriptionPlaceholder" xml:space="preserve"><source>Describe the issue or your suggestion …</source><target>Beschreibe das Problem oder deinen Vorschlag …</target></trans-unit>
+            <trans-unit id="authorLabel" xml:space="preserve"><source>Your name</source><target>Dein Name</target></trans-unit>
+            <trans-unit id="authorPlaceholder" xml:space="preserve"><source>e.g. Jane Doe</source><target>z. B. Maxi Muster</target></trans-unit>
+            <trans-unit id="assigneeLabel" xml:space="preserve"><source>Asana assignee (optional)</source><target>Asana-Bearbeiter:in (optional)</target></trans-unit>
+            <trans-unit id="assigneeNone" xml:space="preserve"><source>No assignee</source><target>Keine Zuweisung</target></trans-unit>
+            <trans-unit id="submit" xml:space="preserve"><source>Send feedback</source><target>Feedback senden</target></trans-unit>
+            <trans-unit id="cancel" xml:space="preserve"><source>Cancel</source><target>Abbrechen</target></trans-unit>
+            <trans-unit id="back" xml:space="preserve"><source>Back</source><target>Zurück</target></trans-unit>
+            <trans-unit id="sending" xml:space="preserve"><source>Sending …</source><target>Wird gesendet …</target></trans-unit>
+            <trans-unit id="successTitle" xml:space="preserve"><source>Thank you!</source><target>Vielen Dank!</target></trans-unit>
+            <trans-unit id="successMessage" xml:space="preserve"><source>Your feedback has been submitted.</source><target>Dein Feedback wurde übermittelt.</target></trans-unit>
+            <trans-unit id="openTask" xml:space="preserve"><source>Open Asana task</source><target>Asana-Aufgabe öffnen</target></trans-unit>
+            <trans-unit id="errorTitle" xml:space="preserve"><source>Error</source><target>Fehler</target></trans-unit>
+            <trans-unit id="errorGeneric" xml:space="preserve"><source>Your feedback could not be submitted. Please try again later.</source><target>Dein Feedback konnte nicht übermittelt werden. Bitte versuche es später erneut.</target></trans-unit>
+            <trans-unit id="errorValidation" xml:space="preserve"><source>Please check your input.</source><target>Bitte überprüfe deine Eingaben.</target></trans-unit>
+            <trans-unit id="errorDescriptionRequired" xml:space="preserve"><source>Please enter a description.</source><target>Bitte gib eine Beschreibung ein.</target></trans-unit>
+            <trans-unit id="errorRateLimit" xml:space="preserve"><source>Too many requests. Please try again later.</source><target>Zu viele Anfragen. Bitte versuche es später erneut.</target></trans-unit>
+            <trans-unit id="errorConfiguration" xml:space="preserve"><source>The feedback module is not configured completely. Please contact the website team.</source><target>Das Feedback-Modul ist nicht vollständig konfiguriert. Bitte kontaktiere das Website-Team.</target></trans-unit>
+            <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the screenshot could not be attached. Please report this.</source><target>Die Aufgabe wurde erstellt, aber der Screenshot konnte nicht angehängt werden. Bitte melde das.</target></trans-unit>
+            <trans-unit id="errorScreenshot" xml:space="preserve"><source>The screenshot could not be created on this page.</source><target>Der Screenshot konnte auf dieser Seite nicht erstellt werden.</target></trans-unit>
+            <trans-unit id="errorForbidden" xml:space="preserve"><source>The feedback function is not available.</source><target>Die Feedback-Funktion ist nicht verfügbar.</target></trans-unit>
+            <trans-unit id="newFeedback" xml:space="preserve"><source>Give more feedback</source><target>Weiteres Feedback geben</target></trans-unit>
+            <trans-unit id="close" xml:space="preserve"><source>Close</source><target>Schließen</target></trans-unit>
+            <trans-unit id="screenshotPreviewAlt" xml:space="preserve"><source>Annotated screenshot preview</source><target>Vorschau des annotierten Screenshots</target></trans-unit>
+            <trans-unit id="editAnnotations" xml:space="preserve"><source>Edit annotations</source><target>Annotationen bearbeiten</target></trans-unit>
+            <trans-unit id="recordScreencast" xml:space="preserve"><source>Record screencast</source><target>Screencast aufnehmen</target></trans-unit>
+            <trans-unit id="recording" xml:space="preserve"><source>Recording …</source><target>Aufnahme läuft …</target></trans-unit>
+            <trans-unit id="stopRecording" xml:space="preserve"><source>Stop recording</source><target>Aufnahme beenden</target></trans-unit>
+            <trans-unit id="screencastNotSupported" xml:space="preserve"><source>Screen recording is not supported by this browser.</source><target>Bildschirmaufnahme wird von diesem Browser nicht unterstützt.</target></trans-unit>
+            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large to upload.</source><target>Die Aufnahme ist zu groß für den Upload.</target></trans-unit>
+            <trans-unit id="removeScreencast" xml:space="preserve"><source>Remove screencast</source><target>Screencast entfernen</target></trans-unit>
+            <trans-unit id="screencastAttached" xml:space="preserve"><source>Screencast attached</source><target>Screencast angehängt</target></trans-unit>
+            <trans-unit id="videoUploadFailed" xml:space="preserve"><source>The task was created, but the screencast could not be attached.</source><target>Die Aufgabe wurde erstellt, aber der Screencast konnte nicht angehängt werden.</target></trans-unit>
+        </body>
+    </file>
+</xliff>

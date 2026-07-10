@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file original="" product-name="CodeQ.AsanaFeedback" source-language="en" datatype="plaintext">
+        <body>
+            <trans-unit id="buttonLabel" xml:space="preserve"><source>Feedback</source></trans-unit>
+            <trans-unit id="panelTitle" xml:space="preserve"><source>Give feedback</source></trans-unit>
+            <trans-unit id="introText" xml:space="preserve"><source>Capture a screenshot of the current page, annotate it and describe your feedback.</source></trans-unit>
+            <trans-unit id="captureScreenshot" xml:space="preserve"><source>Capture screenshot</source></trans-unit>
+            <trans-unit id="capturing" xml:space="preserve"><source>Capturing screenshot …</source></trans-unit>
+            <trans-unit id="annotateTitle" xml:space="preserve"><source>Annotate screenshot</source></trans-unit>
+            <trans-unit id="toolSelect" xml:space="preserve"><source>Select</source></trans-unit>
+            <trans-unit id="toolPen" xml:space="preserve"><source>Freehand</source></trans-unit>
+            <trans-unit id="toolRect" xml:space="preserve"><source>Rectangle</source></trans-unit>
+            <trans-unit id="toolArrow" xml:space="preserve"><source>Arrow</source></trans-unit>
+            <trans-unit id="toolText" xml:space="preserve"><source>Text</source></trans-unit>
+            <trans-unit id="undo" xml:space="preserve"><source>Undo</source></trans-unit>
+            <trans-unit id="redo" xml:space="preserve"><source>Redo</source></trans-unit>
+            <trans-unit id="deleteAnnotation" xml:space="preserve"><source>Remove selection</source></trans-unit>
+            <trans-unit id="continueButton" xml:space="preserve"><source>Continue</source></trans-unit>
+            <trans-unit id="retakeScreenshot" xml:space="preserve"><source>Retake screenshot</source></trans-unit>
+            <trans-unit id="descriptionLabel" xml:space="preserve"><source>Description</source></trans-unit>
+            <trans-unit id="descriptionPlaceholder" xml:space="preserve"><source>Describe the issue or your suggestion …</source></trans-unit>
+            <trans-unit id="authorLabel" xml:space="preserve"><source>Your name</source></trans-unit>
+            <trans-unit id="authorPlaceholder" xml:space="preserve"><source>e.g. Jane Doe</source></trans-unit>
+            <trans-unit id="assigneeLabel" xml:space="preserve"><source>Asana assignee (optional)</source></trans-unit>
+            <trans-unit id="assigneeNone" xml:space="preserve"><source>No assignee</source></trans-unit>
+            <trans-unit id="submit" xml:space="preserve"><source>Send feedback</source></trans-unit>
+            <trans-unit id="cancel" xml:space="preserve"><source>Cancel</source></trans-unit>
+            <trans-unit id="back" xml:space="preserve"><source>Back</source></trans-unit>
+            <trans-unit id="sending" xml:space="preserve"><source>Sending …</source></trans-unit>
+            <trans-unit id="successTitle" xml:space="preserve"><source>Thank you!</source></trans-unit>
+            <trans-unit id="successMessage" xml:space="preserve"><source>Your feedback has been submitted.</source></trans-unit>
+            <trans-unit id="openTask" xml:space="preserve"><source>Open Asana task</source></trans-unit>
+            <trans-unit id="errorTitle" xml:space="preserve"><source>Error</source></trans-unit>
+            <trans-unit id="errorGeneric" xml:space="preserve"><source>Your feedback could not be submitted. Please try again later.</source></trans-unit>
+            <trans-unit id="errorValidation" xml:space="preserve"><source>Please check your input.</source></trans-unit>
+            <trans-unit id="errorDescriptionRequired" xml:space="preserve"><source>Please enter a description.</source></trans-unit>
+            <trans-unit id="errorRateLimit" xml:space="preserve"><source>Too many requests. Please try again later.</source></trans-unit>
+            <trans-unit id="errorConfiguration" xml:space="preserve"><source>The feedback module is not configured completely. Please contact the website team.</source></trans-unit>
+            <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the screenshot could not be attached. Please report this.</source></trans-unit>
+            <trans-unit id="errorScreenshot" xml:space="preserve"><source>The screenshot could not be created on this page.</source></trans-unit>
+            <trans-unit id="errorForbidden" xml:space="preserve"><source>The feedback function is not available.</source></trans-unit>
+            <trans-unit id="newFeedback" xml:space="preserve"><source>Give more feedback</source></trans-unit>
+            <trans-unit id="close" xml:space="preserve"><source>Close</source></trans-unit>
+            <trans-unit id="screenshotPreviewAlt" xml:space="preserve"><source>Annotated screenshot preview</source></trans-unit>
+            <trans-unit id="editAnnotations" xml:space="preserve"><source>Edit annotations</source></trans-unit>
+            <trans-unit id="recordScreencast" xml:space="preserve"><source>Record screencast</source></trans-unit>
+            <trans-unit id="recording" xml:space="preserve"><source>Recording …</source></trans-unit>
+            <trans-unit id="stopRecording" xml:space="preserve"><source>Stop recording</source></trans-unit>
+            <trans-unit id="screencastNotSupported" xml:space="preserve"><source>Screen recording is not supported by this browser.</source></trans-unit>
+            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large to upload.</source></trans-unit>
+            <trans-unit id="removeScreencast" xml:space="preserve"><source>Remove screencast</source></trans-unit>
+            <trans-unit id="screencastAttached" xml:space="preserve"><source>Screencast attached</source></trans-unit>
+            <trans-unit id="videoUploadFailed" xml:space="preserve"><source>The task was created, but the screencast could not be attached.</source></trans-unit>
+        </body>
+    </file>
+</xliff>
