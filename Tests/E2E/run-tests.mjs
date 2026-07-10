@@ -115,6 +115,11 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     if ((await page.locator('.cqaf-panel__title').textContent()) !== 'Write Code Q') {
         throw new Error('feedback panel title is not branded');
     }
+    const editAnnotationsBox = await page.locator('.cqaf-form__preview-actions > button').boundingBox();
+    const recordScreencastBox = await page.locator('[data-action="record-screencast"]').boundingBox();
+    if (!editAnnotationsBox || !recordScreencastBox || Math.abs(editAnnotationsBox.y - recordScreencastBox.y) > 1 || recordScreencastBox.x <= editAnnotationsBox.x) {
+        throw new Error('record screencast action is not to the right of edit annotations');
+    }
 
     const assigneeCount = await page.locator('.cqaf-assignee').count();
     if (assigneeCount !== expectedAssigneeCount) throw new Error(`expected ${expectedAssigneeCount} assignees, saw ${assigneeCount}`);

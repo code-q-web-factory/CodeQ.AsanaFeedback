@@ -18,15 +18,50 @@ function pickMimeType() {
     return candidates.find((candidate) => window.MediaRecorder.isTypeSupported(candidate)) || '';
 }
 
+function stopStreamAndCreateAudioError(stream) {
+    stream.getTracks().forEach((track) => track.stop());
+    const error = new Error('No audio source is available for the screen recording.');
+    error.code = 'audioUnavailable';
+    return error;
+}
+
 /**
  * Starts a screen recording and resolves with a handle exposing stop().
  * The returned promise from stop() (or an automatic stop on the duration
  * cap or when the user ends sharing) resolves with the recorded blob.
  */
-export async function startScreencast({ onAutoStop }) {
-    // the user explicitly picks screen/window/tab; audio is included when
-    // the browser offers tab or system audio in the picker
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
+    // the user explicitly picks screen/window/tab; compatible browsers are
+    // asked to include tab or system audio in the selected surface
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+        systemAudio: 'include',
+        surfaceSwitching: 'include',
+    });
+    if (onStreamSelected) {
+        onStreamSelected();
+    }
+
+    // Browsers and operating systems do not expose shared audio for every
+    // capture surface. Use the microphone when the selected stream has no
+    // audio track so the recording still contains an explanation.
+    if (stream.getAudioTracks().length === 0 && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        let microphoneStream;
+        try {
+            microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (error) {
+            throw stopStreamAndCreateAudioError(stream);
+        }
+        const microphoneTracks = microphoneStream.getAudioTracks();
+        if (microphoneTracks.length === 0) {
+            throw stopStreamAndCreateAudioError(stream);
+        }
+        microphoneTracks.forEach((track) => stream.addTrack(track));
+    }
+    if (stream.getAudioTracks().length === 0) {
+        throw stopStreamAndCreateAudioError(stream);
+    }
 
     const mimeType = pickMimeType();
     const recorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);

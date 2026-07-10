@@ -39,7 +39,21 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
     }, [icon('feedback'), h('span', {}, [labels.buttonLabel])]);
 
     const overlay = h('div', { className: 'cqaf-overlay', hidden: true });
-    root.append(feedbackButton, overlay);
+    let recordingStartedAt = 0;
+    let recordingElapsedInterval = null;
+    const recordingStopLabel = h('span', {}, [labels.stopRecording]);
+    const recordingStopButton = h('button', {
+        type: 'button',
+        className: 'cqaf-button cqaf-recording-stop',
+        dataset: { action: 'stop-recording' },
+        hidden: true,
+        onClick: () => {
+            if (state.recordingHandle) {
+                state.recordingHandle.stop();
+            }
+        },
+    }, [icon('video'), recordingStopLabel]);
+    root.append(feedbackButton, overlay, recordingStopButton);
 
     function showOverlay(...children) {
         overlay.hidden = false;
@@ -51,6 +65,31 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         replaceChildren(overlay);
     }
 
+    function concealOverlay() {
+        overlay.hidden = true;
+    }
+
+    function revealOverlay() {
+        overlay.hidden = false;
+    }
+
+    function showRecordingStopButton() {
+        recordingStartedAt = Date.now();
+        recordingStopLabel.textContent = `${labels.stopRecording} (0s)`;
+        recordingStopButton.hidden = false;
+        clearInterval(recordingElapsedInterval);
+        recordingElapsedInterval = setInterval(() => {
+            const seconds = Math.round((Date.now() - recordingStartedAt) / 1000);
+            recordingStopLabel.textContent = `${labels.stopRecording} (${seconds}s)`;
+        }, 1000);
+    }
+
+    function hideRecordingStopButton() {
+        clearInterval(recordingElapsedInterval);
+        recordingElapsedInterval = null;
+        recordingStopButton.hidden = true;
+    }
+
     function destroyAnnotator() {
         if (state.annotator) {
             state.annotator.destroy();
@@ -60,15 +99,17 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
     function reset() {
         destroyAnnotator();
-        if (state.recordingHandle) {
-            state.recordingHandle.stop();
+        const recordingHandle = state.recordingHandle;
+        state.recordingHandle = null;
+        hideRecordingStopButton();
+        if (recordingHandle) {
+            recordingHandle.stop();
         }
         state.annotatedCanvas = null;
         state.screenshotCanvas = null;
         state.submitting = false;
         state.screencastBlob = null;
         state.screencastMimeType = '';
-        state.recordingHandle = null;
         hideOverlay();
         feedbackButton.hidden = !floatingButton;
     }
@@ -207,33 +248,12 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
         // optional screencast (nice-to-have): recorded via the native
         // Screen Capture API, attached to the same Asana task
-        let screencastRow = null;
+        let screencastContainer = null;
         if (isScreencastSupported()) {
-            const screencastContainer = h('div', { className: 'cqaf-screencast' });
-            let elapsedInterval = null;
+            screencastContainer = h('div', { className: 'cqaf-screencast' });
 
             const renderScreencastState = () => {
-                clearInterval(elapsedInterval);
-                if (state.recordingHandle) {
-                    const startedAt = Date.now();
-                    const stopButton = h('button', {
-                        type: 'button',
-                        className: 'cqaf-button cqaf-button--ghost cqaf-button--small cqaf-screencast__stop',
-                        dataset: { action: 'stop-recording' },
-                        onClick: async () => {
-                            const blob = await state.recordingHandle.stop();
-                            finishRecording(blob);
-                        },
-                    }, [icon('video'), h('span', {}, [`${labels.stopRecording} (0s)`])]);
-                    elapsedInterval = setInterval(() => {
-                        const seconds = Math.round((Date.now() - startedAt) / 1000);
-                        const labelSpan = stopButton.querySelector('span:last-child');
-                        if (labelSpan) labelSpan.textContent = `${labels.stopRecording} (${seconds}s)`;
-                    }, 1000);
-                    replaceChildren(screencastContainer,
-                        h('span', { className: 'cqaf-screencast__indicator' }, [labels.recording]),
-                        stopButton);
-                } else if (state.screencastBlob) {
+                if (state.screencastBlob) {
                     replaceChildren(screencastContainer,
                         h('span', { className: 'cqaf-screencast__attached' }, [
                             `${labels.screencastAttached} (${(state.screencastBlob.size / 1048576).toFixed(1)} MB)`,
@@ -253,23 +273,35 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                         className: 'cqaf-button cqaf-button--ghost cqaf-button--small',
                         dataset: { action: 'record-screencast' },
                         onClick: async () => {
+                            let recordingHandle;
                             try {
-                                state.recordingHandle = await startScreencast({
-                                    onAutoStop: () => state.recordingHandle && state.recordingHandle.blobPromise.then(finishRecording),
+                                recordingHandle = await startScreencast({
+                                    onStreamSelected: () => concealOverlay(),
                                 });
                             } catch (error) {
                                 // the user cancelled the picker or the browser denied access
+                                if (error && error.code === 'audioUnavailable') {
+                                    errorMessage.textContent = labels.screencastAudioRequired;
+                                    errorMessage.hidden = false;
+                                }
+                                revealOverlay();
                                 return;
                             }
-                            renderScreencastState();
+                            state.recordingHandle = recordingHandle;
+                            showRecordingStopButton();
+                            recordingHandle.blobPromise.then((blob) => finishRecording(blob, recordingHandle));
                         },
                     }, [icon('video'), h('span', {}, [labels.recordScreencast])]));
                 }
             };
 
-            const finishRecording = (blob) => {
-                const mimeType = state.recordingHandle ? state.recordingHandle.mimeType : '';
+            const finishRecording = (blob, recordingHandle) => {
+                if (state.recordingHandle !== recordingHandle) {
+                    return;
+                }
+                const mimeType = recordingHandle.mimeType;
                 state.recordingHandle = null;
+                hideRecordingStopButton();
                 if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
                     state.screencastBlob = blob;
                     state.screencastMimeType = mimeType;
@@ -279,10 +311,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                     errorMessage.hidden = false;
                 }
                 renderScreencastState();
+                revealOverlay();
             };
 
             renderScreencastState();
-            screencastRow = h('div', { className: 'cqaf-field' }, [screencastContainer]);
         }
 
         const submitButton = h('button', { type: 'submit', className: 'cqaf-button cqaf-button--primary' }, [labels.submit]);
@@ -295,7 +327,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             ]),
             h('div', { className: 'cqaf-form__preview-wrap' }, [
                 previewImage,
-                h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => openAnnotator() }, [labels.editAnnotations]),
+                h('div', { className: 'cqaf-form__preview-actions' }, [
+                    h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => openAnnotator() }, [labels.editAnnotations]),
+                    screencastContainer,
+                ]),
             ]),
             titleRow,
             h('div', { className: 'cqaf-field' }, [
@@ -305,7 +340,6 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             ]),
             ...identityRows,
             assigneeRow,
-            screencastRow,
             errorMessage,
             h('div', { className: 'cqaf-form__actions' }, [
                 h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', onClick: () => reset() }, [labels.cancel]),
@@ -328,12 +362,14 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
             // a still running recording is finished before sending
             if (state.recordingHandle) {
-                const blob = await state.recordingHandle.stop();
+                const recordingHandle = state.recordingHandle;
+                const blob = await recordingHandle.stop();
                 if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
                     state.screencastBlob = blob;
-                    state.screencastMimeType = state.recordingHandle.mimeType;
+                    state.screencastMimeType = recordingHandle.mimeType;
                 }
                 state.recordingHandle = null;
+                hideRecordingStopButton();
             }
 
             state.submitting = true;

@@ -51,6 +51,7 @@
             <trans-unit id="stopRecording" xml:space="preserve"><source>Stop recording</source><target>Aufnahme beenden</target></trans-unit>
             <trans-unit id="screencastNotSupported" xml:space="preserve"><source>Screen recording is not supported by this browser.</source><target>Bildschirmaufnahme wird von diesem Browser nicht unterstützt.</target></trans-unit>
             <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large to upload.</source><target>Die Aufnahme ist zu groß für den Upload.</target></trans-unit>
+            <trans-unit id="screencastAudioRequired" xml:space="preserve"><source>Please allow microphone access or select a source with audio.</source><target>Bitte erlaube den Mikrofonzugriff oder wähle eine Quelle mit Audio aus.</target></trans-unit>
             <trans-unit id="removeScreencast" xml:space="preserve"><source>Remove screencast</source><target>Screencast entfernen</target></trans-unit>
             <trans-unit id="screencastAttached" xml:space="preserve"><source>Screencast attached</source><target>Screencast angehängt</target></trans-unit>
             <trans-unit id="videoUploadFailed" xml:space="preserve"><source>The task was created, but the screencast could not be attached.</source><target>Die Aufgabe wurde erstellt, aber der Screencast konnte nicht angehängt werden.</target></trans-unit>

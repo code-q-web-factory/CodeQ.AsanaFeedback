@@ -30,7 +30,7 @@ class WidgetConfigService
         'errorConfiguration', 'errorAttachment', 'errorScreenshot', 'errorForbidden',
         'newFeedback', 'close', 'screenshotPreviewAlt', 'editAnnotations',
         'recordScreencast', 'recording', 'stopRecording', 'screencastNotSupported',
-        'screencastTooLarge', 'removeScreencast', 'screencastAttached', 'videoUploadFailed',
+        'screencastTooLarge', 'screencastAudioRequired', 'removeScreencast', 'screencastAttached', 'videoUploadFailed',
     ];
 
     /**

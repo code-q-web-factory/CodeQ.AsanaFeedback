@@ -214,6 +214,15 @@
     background: #ffffff;
 }
 
+#codeq-asana-feedback-root .cqaf-form__preview-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
 #codeq-asana-feedback-root .cqaf-field {
     margin-bottom: 14px;
 }
@@ -320,20 +329,24 @@
 #codeq-asana-feedback-root .cqaf-screencast {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+    margin-left: auto;
 }
 
-#codeq-asana-feedback-root .cqaf-screencast__indicator {
-    color: var(--cqaf-error);
-    font-size: 13px;
-    animation: cqaf-blink 1.2s ease-in-out infinite;
+#codeq-asana-feedback-root .cqaf-recording-stop {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2147483002;
+    background: var(--cqaf-error);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-@keyframes cqaf-blink {
-    50% {
-        opacity: 0.4;
-    }
+#codeq-asana-feedback-root .cqaf-recording-stop:hover {
+    background: #df3500;
 }
 
 #codeq-asana-feedback-root .cqaf-screencast__attached {
