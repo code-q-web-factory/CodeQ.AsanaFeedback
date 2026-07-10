@@ -1,0 +1,5 @@
+CodeQ_AsanaFeedback_RateLimit:
+  frontend: Neos\Cache\Frontend\VariableFrontend
+  backend: Neos\Cache\Backend\FileBackend
+  backendOptions:
+    defaultLifetime: 3600

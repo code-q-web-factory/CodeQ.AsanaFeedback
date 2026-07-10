@@ -1,0 +1,65 @@
+Neos:
+  Flow:
+    mvc:
+      routes:
+        'CodeQ.AsanaFeedback':
+          position: 'start'
+
+  Fusion:
+    defaultContext:
+      AsanaFeedback: 'CodeQ\AsanaFeedback\Eel\FeedbackHelper'
+
+  Neos:
+    fusion:
+      autoInclude:
+        CodeQ.AsanaFeedback: true
+
+CodeQ:
+  AsanaFeedback:
+    # Whether visitors without a Neos backend session may use the widget.
+    # Authenticated Neos users can always use it, independent of this flag.
+    enableForAnonymousUsersInFrontend: false
+
+    asana:
+      # Personal access token of the Asana integration user, provided via
+      # environment so it is never part of versioned configuration.
+      accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
+      apiBaseUri: 'https://app.asana.com/api/1.0'
+
+    # The fixed Asana project every feedback task is created in.
+    asanaProjectGid: ''
+
+    # Optional fixed section GID. When empty, the section is resolved at
+    # submit time by looking up the project sections by name.
+    asanaSectionGid: ''
+
+    # Ordered list of section names used to resolve the target section
+    # (matched case-insensitively against the project sections).
+    asanaSectionNames:
+      - 'Todo'
+      - 'ToDo'
+      - 'Todos'
+      - 'Organisation'
+
+    limits:
+      screenshotBytes: 10485760
+      videoBytes: 100000000
+      descriptionCharacters: 10000
+
+    rateLimit:
+      # Requests per client IP; protects the public endpoint against abuse.
+      maxPerMinute: 5
+      maxPerHour: 20
+
+    # Neos account identifiers of internal Code Q team members. Only these
+    # users get the assignee selection and the Asana task link on success.
+    teamAccountIdentifiers: []
+
+    # Selectable Asana assignees; keys are stable identifiers submitted by
+    # the widget and validated server-side against this list.
+    # Example:
+    #   roland:
+    #     label: 'Roland'
+    #     asanaUserGid: '1234567890'
+    #     avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
+    assignees: {}

@@ -1,0 +1,10 @@
+-
+  name: 'AsanaFeedback: Submit feedback'
+  uriPattern: 'codeq-asana-feedback/submit'
+  defaults:
+    '@package': 'CodeQ.AsanaFeedback'
+    '@controller': 'Feedback'
+    '@action': 'submit'
+    '@format': 'json'
+  httpMethods: ['POST']
+  appendExceedingArguments: true

@@ -1,0 +1,22 @@
+{
+    "name": "codeq/asanafeedback",
+    "type": "neos-package",
+    "description": "Feedback widget for Neos CMS websites that creates Asana tasks with annotated screenshots",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-fileinfo": "*",
+        "neos/neos": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CodeQ\\AsanaFeedback\\": "Classes"
+        }
+    },
+    "extra": {
+        "neos": {
+            "package-key": "CodeQ.AsanaFeedback"
+        }
+    }
+}

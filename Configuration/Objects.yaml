@@ -1,0 +1,9 @@
+CodeQ\AsanaFeedback\Service\RateLimiter:
+  properties:
+    cache:
+      object:
+        factoryObjectName: Neos\Flow\Cache\CacheManager
+        factoryMethodName: getCache
+        arguments:
+          1:
+            value: 'CodeQ_AsanaFeedback_RateLimit'
