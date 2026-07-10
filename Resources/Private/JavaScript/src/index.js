@@ -3,6 +3,7 @@ import { icon } from './icons';
 import { captureViewport } from './capture';
 import { collectTechnicalContext } from './context';
 import { Annotator } from './annotator';
+import { isScreencastSupported, startScreencast, fileExtensionForMimeType } from './recorder';
 
 /**
  * Entry point of the feedback widget. Reads the server rendered bootstrap
@@ -22,6 +23,9 @@ function bootstrap() {
         screenshotCanvas: null,
         annotator: null,
         submitting: false,
+        screencastBlob: null,
+        screencastMimeType: '',
+        recordingHandle: null,
     };
 
     // the root element is excluded from screenshots via the capture filter
@@ -57,9 +61,15 @@ function bootstrap() {
 
     function reset() {
         destroyAnnotator();
+        if (state.recordingHandle) {
+            state.recordingHandle.stop();
+        }
         state.annotatedCanvas = null;
         state.screenshotCanvas = null;
         state.submitting = false;
+        state.screencastBlob = null;
+        state.screencastMimeType = '';
+        state.recordingHandle = null;
         hideOverlay();
         feedbackButton.hidden = false;
     }
@@ -181,6 +191,86 @@ function bootstrap() {
             ]);
         }
 
+        // optional screencast (nice-to-have): recorded via the native
+        // Screen Capture API, attached to the same Asana task
+        let screencastRow = null;
+        if (isScreencastSupported()) {
+            const screencastContainer = h('div', { className: 'cqaf-screencast' });
+            let elapsedInterval = null;
+
+            const renderScreencastState = () => {
+                clearInterval(elapsedInterval);
+                if (state.recordingHandle) {
+                    const startedAt = Date.now();
+                    const stopButton = h('button', {
+                        type: 'button',
+                        className: 'cqaf-button cqaf-button--ghost cqaf-button--small cqaf-screencast__stop',
+                        dataset: { action: 'stop-recording' },
+                        onClick: async () => {
+                            const blob = await state.recordingHandle.stop();
+                            finishRecording(blob);
+                        },
+                    }, [icon('video'), h('span', {}, [`${labels.stopRecording} (0s)`])]);
+                    elapsedInterval = setInterval(() => {
+                        const seconds = Math.round((Date.now() - startedAt) / 1000);
+                        const labelSpan = stopButton.querySelector('span:last-child');
+                        if (labelSpan) labelSpan.textContent = `${labels.stopRecording} (${seconds}s)`;
+                    }, 1000);
+                    replaceChildren(screencastContainer,
+                        h('span', { className: 'cqaf-screencast__indicator' }, [labels.recording]),
+                        stopButton);
+                } else if (state.screencastBlob) {
+                    replaceChildren(screencastContainer,
+                        h('span', { className: 'cqaf-screencast__attached' }, [
+                            `${labels.screencastAttached} (${(state.screencastBlob.size / 1048576).toFixed(1)} MB)`,
+                        ]),
+                        h('button', {
+                            type: 'button',
+                            className: 'cqaf-button cqaf-button--ghost cqaf-button--small',
+                            dataset: { action: 'remove-recording' },
+                            onClick: () => {
+                                state.screencastBlob = null;
+                                renderScreencastState();
+                            },
+                        }, [labels.removeScreencast]));
+                } else {
+                    replaceChildren(screencastContainer, h('button', {
+                        type: 'button',
+                        className: 'cqaf-button cqaf-button--ghost cqaf-button--small',
+                        dataset: { action: 'record-screencast' },
+                        onClick: async () => {
+                            try {
+                                state.recordingHandle = await startScreencast({
+                                    onAutoStop: () => state.recordingHandle && state.recordingHandle.blobPromise.then(finishRecording),
+                                });
+                            } catch (error) {
+                                // the user cancelled the picker or the browser denied access
+                                return;
+                            }
+                            renderScreencastState();
+                        },
+                    }, [icon('video'), h('span', {}, [labels.recordScreencast])]));
+                }
+            };
+
+            const finishRecording = (blob) => {
+                const mimeType = state.recordingHandle ? state.recordingHandle.mimeType : '';
+                state.recordingHandle = null;
+                if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
+                    state.screencastBlob = blob;
+                    state.screencastMimeType = mimeType;
+                } else if (blob && blob.size > config.limits.videoBytes) {
+                    state.screencastBlob = null;
+                    errorMessage.textContent = labels.screencastTooLarge;
+                    errorMessage.hidden = false;
+                }
+                renderScreencastState();
+            };
+
+            renderScreencastState();
+            screencastRow = h('div', { className: 'cqaf-field' }, [screencastContainer]);
+        }
+
         const submitButton = h('button', { type: 'submit', className: 'cqaf-button cqaf-button--primary' }, [labels.submit]);
         const errorMessage = h('p', { className: 'cqaf-form-error', role: 'alert', hidden: true });
 
@@ -200,6 +290,7 @@ function bootstrap() {
             ]),
             ...identityRows,
             assigneeRow,
+            screencastRow,
             errorMessage,
             h('div', { className: 'cqaf-form__actions' }, [
                 h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', onClick: () => reset() }, [labels.cancel]),
@@ -218,6 +309,16 @@ function bootstrap() {
             if (description === '') {
                 descriptionField.focus();
                 return;
+            }
+
+            // a still running recording is finished before sending
+            if (state.recordingHandle) {
+                const blob = await state.recordingHandle.stop();
+                if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
+                    state.screencastBlob = blob;
+                    state.screencastMimeType = state.recordingHandle.mimeType;
+                }
+                state.recordingHandle = null;
             }
 
             state.submitting = true;
@@ -258,6 +359,9 @@ function bootstrap() {
         formData.append('pageUrl', window.location.href);
         formData.append('technicalContext', JSON.stringify(collectTechnicalContext()));
         formData.append('screenshot', screenshotBlob, 'screenshot.png');
+        if (state.screencastBlob) {
+            formData.append('video', state.screencastBlob, 'screencast.' + fileExtensionForMimeType(state.screencastMimeType));
+        }
 
         let response;
         try {

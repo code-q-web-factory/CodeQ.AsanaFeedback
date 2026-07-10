@@ -278,6 +278,31 @@
     font-weight: 600;
 }
 
+/* ---------- screencast ---------- */
+.cqaf-screencast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cqaf-screencast__indicator {
+    color: var(--cqaf-error);
+    font-size: 13px;
+    animation: cqaf-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes cqaf-blink {
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.cqaf-screencast__attached {
+    color: var(--cqaf-text-muted);
+    font-size: 13px;
+}
+
 /* ---------- result view ---------- */
 .cqaf-panel--result {
     text-align: center;
