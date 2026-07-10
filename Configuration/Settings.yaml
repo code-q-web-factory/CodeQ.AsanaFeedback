@@ -5,6 +5,18 @@ Neos:
         'CodeQ.AsanaFeedback':
           position: 'start'
 
+    security:
+      authentication:
+        providers:
+          # activate the Neos backend session for the feedback endpoint so
+          # the author identity can be determined server side
+          'Neos.Neos:Backend':
+            requestPatterns:
+              'CodeQ.AsanaFeedback:FeedbackController':
+                pattern: 'ControllerObjectName'
+                patternOptions:
+                  controllerObjectNamePattern: 'CodeQ\AsanaFeedback\Controller\.*'
+
   Fusion:
     defaultContext:
       AsanaFeedback: 'CodeQ\AsanaFeedback\Eel\FeedbackHelper'

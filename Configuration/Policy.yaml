@@ -1,0 +1,17 @@
+#
+# The submit endpoint must be reachable without a Neos backend session
+# (anonymous feedback is gated by configuration inside the controller, not
+# by the security framework). Without this grant Neos'
+# "Neos.Neos:AllControllerActions" privilege would reject every request.
+#
+privilegeTargets:
+  'Neos\Flow\Security\Authorization\Privilege\Method\MethodPrivilege':
+    'CodeQ.AsanaFeedback:SubmitFeedback':
+      matcher: 'method(CodeQ\AsanaFeedback\Controller\FeedbackController->submitAction())'
+
+roles:
+  'Neos.Flow:Everybody':
+    privileges:
+      -
+        privilegeTarget: 'CodeQ.AsanaFeedback:SubmitFeedback'
+        permission: GRANT

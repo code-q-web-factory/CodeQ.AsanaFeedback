@@ -340,9 +340,13 @@ export class Annotator {
     }
 
     async restoreState(serializedState) {
+        // a pending debounced capture would clear the redo stack after the
+        // restore and silently break redo, so it is discarded here
+        clearTimeout(this.stateCaptureTimeout);
         this.isRestoringState = true;
         await this.canvas.loadFromJSON(JSON.parse(serializedState));
         this.canvas.renderAll();
+        clearTimeout(this.stateCaptureTimeout);
         this.isRestoringState = false;
         this.updateHistoryButtons();
     }

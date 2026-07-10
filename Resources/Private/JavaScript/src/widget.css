@@ -57,6 +57,10 @@
 }
 
 /* ---------- overlay + panel ---------- */
+.cqaf-overlay[hidden] {
+    display: none;
+}
+
 .cqaf-overlay {
     position: fixed;
     inset: 0;
