@@ -40,11 +40,10 @@ for this use case.
 
 ### 1. Require the package
 
-For a distribution that contains the package under `DistributionPackages/`
-(path repository, as usual in Code Q projects):
+Install the package from Packagist in the project root:
 
 ```bash
-composer require codeq/asanafeedback:@dev
+composer require codeq/asanafeedback
 ```
 
 Nothing else needs to be wired up manually: the Fusion integration
