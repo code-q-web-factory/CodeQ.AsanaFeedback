@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs && npm run build --prefix ../BackendUi",
+    "build:frontend": "node build.mjs"
   },
   "dependencies": {
     "fabric": "^6.7.0",

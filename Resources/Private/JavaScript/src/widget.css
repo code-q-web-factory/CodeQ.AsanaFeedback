@@ -249,7 +249,8 @@
 
 #codeq-asana-feedback-root .cqaf-author-name {
     margin: 0;
-    padding: 9px 10px;
+    /* important, because the generic label/paragraph reset above zeroes padding */
+    padding: 9px 10px !important;
     background: var(--cqaf-bg-input);
     border-radius: 2px !important;
     color: var(--cqaf-text-muted);
