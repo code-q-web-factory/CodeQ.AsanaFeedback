@@ -97,7 +97,12 @@ class FeedbackServiceTest extends TestCase
             "A description\nwith a second line",
             'Jane Doe',
             'https://example.com/de/page?query=1',
-            ['browser' => 'Firefox 141', 'userAgent' => 'Mozilla/5.0', 'ignoredKey' => 'must not appear'],
+            [
+                'browser' => 'Firefox 141',
+                'contentCanvasUrl' => 'https://example.com/de/content-page',
+                'userAgent' => 'Mozilla/5.0',
+                'ignoredKey' => 'must not appear',
+            ],
         ]);
 
         self::assertStringContainsString('Autor: Jane Doe', $notes);
@@ -105,6 +110,7 @@ class FeedbackServiceTest extends TestCase
         self::assertStringContainsString('Erstellt am:', $notes);
         self::assertStringContainsString("A description\nwith a second line", $notes);
         self::assertStringContainsString('Browser: Firefox 141', $notes);
+        self::assertStringContainsString('Content-Canvas-URL: https://example.com/de/content-page', $notes);
         self::assertStringContainsString('User-Agent: Mozilla/5.0', $notes);
         self::assertStringNotContainsString('must not appear', $notes);
     }

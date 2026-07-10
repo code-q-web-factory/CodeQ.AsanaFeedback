@@ -1,7 +1,7 @@
 import { h, replaceChildren } from './dom';
 import { icon } from './icons';
 import { captureViewport } from './capture';
-import { collectTechnicalContext } from './context';
+import { collectTechnicalContext, getNeosContentCanvasUrl } from './context';
 import { Annotator } from './annotator';
 import { isScreencastSupported, startScreencast, fileExtensionForMimeType } from './recorder';
 
@@ -24,6 +24,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         screencastBlob: null,
         screencastMimeType: '',
         recordingHandle: null,
+        contentCanvasUrl: '',
     };
 
     // the root element is excluded from screenshots via the capture filter
@@ -110,11 +111,13 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         state.submitting = false;
         state.screencastBlob = null;
         state.screencastMimeType = '';
+        state.contentCanvasUrl = '';
         hideOverlay();
         feedbackButton.hidden = !floatingButton;
     }
 
     async function startCapture() {
+        state.contentCanvasUrl = includeIframes ? getNeosContentCanvasUrl() : '';
         feedbackButton.disabled = true;
         feedbackButton.classList.add('cqaf-fab--busy');
         // rendering the page DOM can take a few seconds; the indicator lives
@@ -410,7 +413,9 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         formData.append('authorName', fields.authorName || '');
         formData.append('assigneeKey', fields.assigneeKey || '');
         formData.append('pageUrl', window.location.href);
-        formData.append('technicalContext', JSON.stringify(collectTechnicalContext()));
+        formData.append('technicalContext', JSON.stringify(collectTechnicalContext({
+            contentCanvasUrl: state.contentCanvasUrl,
+        })));
         formData.append('screenshot', screenshotBlob, 'screenshot.png');
         if (state.screencastBlob) {
             formData.append('video', state.screencastBlob, 'screencast.' + fileExtensionForMimeType(state.screencastMimeType));

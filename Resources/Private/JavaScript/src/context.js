@@ -3,10 +3,10 @@
  * native APIs only, so no additional library is required; the raw user
  * agent is included as diagnostic fallback.
  */
-export function collectTechnicalContext() {
+export function collectTechnicalContext({ contentCanvasUrl = '' } = {}) {
     const userAgent = navigator.userAgent || '';
 
-    return {
+    const context = {
         browser: detectBrowser(userAgent),
         operatingSystem: detectOperatingSystem(userAgent),
         viewport: `${window.innerWidth} × ${window.innerHeight}`,
@@ -15,6 +15,29 @@ export function collectTechnicalContext() {
         language: navigator.language || '',
         userAgent,
     };
+    if (contentCanvasUrl) {
+        context.contentCanvasUrl = contentCanvasUrl;
+    }
+
+    return context;
+}
+
+/**
+ * The Neos content canvas has no src attribute because the UI navigates its
+ * window directly. Read the live URL while the same-origin frame is loaded.
+ */
+export function getNeosContentCanvasUrl(documentReference = document) {
+    const contentCanvas = documentReference.querySelector('iframe[name="neos-content-main"]');
+    if (!contentCanvas) {
+        return '';
+    }
+
+    try {
+        const url = contentCanvas.contentWindow.location.href;
+        return /^https?:\/\//.test(url) ? url : '';
+    } catch (crossOriginError) {
+        return '';
+    }
 }
 
 function detectBrowser(userAgent) {

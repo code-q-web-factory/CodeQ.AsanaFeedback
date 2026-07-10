@@ -34,6 +34,7 @@ class FeedbackService
         'screen' => 'Bildschirm',
         'devicePixelRatio' => 'Device Pixel Ratio',
         'language' => 'Sprache',
+        'contentCanvasUrl' => 'Content-Canvas-URL',
         'userAgent' => 'User-Agent',
     ];
 

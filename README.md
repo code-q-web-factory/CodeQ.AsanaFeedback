@@ -29,7 +29,8 @@ for this use case.
   configured assignee and get the Asana task link after submission
 - Feedback button in the Neos backend toolbar (next to the dimension
   switcher) for all logged-in users; its screenshot captures the full
-  backend including the content canvas and inspector
+  backend including the content canvas and inspector, and its technical
+  context includes the live content-canvas URL
 - Optional screencast recording (Screen Capture API, https only), attached
   to the same task
 - German and English UI via XLIFF resources, following the site language
