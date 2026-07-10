@@ -48,6 +48,14 @@
     line-height: 1.4;
 }
 
+/* site themes often indent labels/paragraphs; the widget aligns labels
+   flush with the inputs below them */
+#codeq-asana-feedback-root label,
+#codeq-asana-feedback-root p {
+    margin: 0;
+    padding: 0 !important;
+}
+
 #codeq-asana-feedback-root textarea:focus,
 #codeq-asana-feedback-root input:focus,
 #codeq-asana-feedback-root button:focus {
