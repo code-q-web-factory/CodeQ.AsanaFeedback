@@ -18,6 +18,8 @@
             <trans-unit id="deleteAnnotation" xml:space="preserve"><source>Remove selection</source></trans-unit>
             <trans-unit id="continueButton" xml:space="preserve"><source>Continue</source></trans-unit>
             <trans-unit id="retakeScreenshot" xml:space="preserve"><source>Retake screenshot</source></trans-unit>
+            <trans-unit id="titleLabel" xml:space="preserve"><source>Title (optional)</source></trans-unit>
+            <trans-unit id="titlePlaceholder" xml:space="preserve"><source>Short task title for Asana</source></trans-unit>
             <trans-unit id="descriptionLabel" xml:space="preserve"><source>Description</source></trans-unit>
             <trans-unit id="descriptionPlaceholder" xml:space="preserve"><source>Describe the issue or your suggestion …</source></trans-unit>
             <trans-unit id="authorLabel" xml:space="preserve"><source>Your name</source></trans-unit>

@@ -22,6 +22,7 @@ class WidgetConfigService
         'buttonLabel', 'panelTitle', 'introText', 'captureScreenshot', 'capturing',
         'annotateTitle', 'toolSelect', 'toolPen', 'toolRect', 'toolArrow', 'toolText',
         'undo', 'redo', 'deleteAnnotation', 'continueButton', 'retakeScreenshot',
+        'titleLabel', 'titlePlaceholder',
         'descriptionLabel', 'descriptionPlaceholder', 'authorLabel', 'authorPlaceholder',
         'assigneeLabel', 'assigneeNone', 'submit', 'cancel', 'back', 'sending',
         'successTitle', 'successMessage', 'openTask', 'errorTitle', 'errorGeneric',

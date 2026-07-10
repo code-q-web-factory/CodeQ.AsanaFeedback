@@ -90,7 +90,7 @@ async function drawAllAnnotations(page) {
     await page.waitForTimeout(300);
 }
 
-async function runFeedbackFlow(page, { description, authorName, assigneeKey, expectAssigneeUi, expectTaskLink }) {
+async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectAssigneeUi, expectTaskLink }) {
     await page.locator('.cqaf-fab').waitFor({ state: 'visible', timeout: 20000 });
     await page.click('.cqaf-fab');
 
@@ -108,6 +108,11 @@ async function runFeedbackFlow(page, { description, authorName, assigneeKey, exp
     const assigneeCount = await page.locator('.cqaf-assignee').count();
     if (expectAssigneeUi && assigneeCount !== 3) throw new Error(`expected 3 assignees, saw ${assigneeCount}`);
     if (!expectAssigneeUi && assigneeCount !== 0) throw new Error(`assignee UI visible for non-team user (${assigneeCount})`);
+
+    const titleFieldCount = await page.locator('#cqaf-title').count();
+    if (expectAssigneeUi && titleFieldCount !== 1) throw new Error('title field missing for team member');
+    if (!expectAssigneeUi && titleFieldCount !== 0) throw new Error('title field visible for non-team user');
+    if (title) await page.fill('#cqaf-title', title);
 
     await page.fill('#cqaf-description', description);
     if (authorName !== null) await page.fill('#cqaf-author', authorName);
@@ -130,7 +135,7 @@ async function runFeedbackFlow(page, { description, authorName, assigneeKey, exp
     return payload;
 }
 
-async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeName }) {
+async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeName, expectedTaskName }) {
     let task = null;
     for (let attempt = 0; attempt < 5 && !task; attempt++) {
         task = await findTaskByMarker(marker);
@@ -143,6 +148,12 @@ async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeName 
     if (!(task.notes || '').includes('URL: http://basewebsite.ddev.site')) throw new Error('page URL missing in notes');
     if (!(task.notes || '').includes('Erstellt am:')) throw new Error('timestamp missing in notes');
     if (!(task.notes || '').includes('Browser:')) throw new Error('technical context missing in notes');
+
+    if (expectedTaskName !== undefined) {
+        if (task.name !== expectedTaskName) throw new Error(`task name mismatch: "${task.name}"`);
+    } else if (!task.name.startsWith('Website-Feedback: ')) {
+        throw new Error(`missing Website-Feedback prefix: "${task.name}"`);
+    }
 
     const actualAssignee = task.assignee ? task.assignee.name : null;
     if ((expectedAssigneeName || null) !== actualAssignee) throw new Error(`assignee mismatch: expected ${expectedAssigneeName}, got ${actualAssignee}`);
@@ -209,14 +220,16 @@ await testScenario('chromium-team-roland', chromium, async (page) => {
     await neosLogin(page, process.env.E2E_TEAM_USER || 'roland.schuetz', process.env.E2E_TEAM_PASSWORD || 'codeq-e2e-Test1');
     await page.goto(BASE, { waitUntil: 'load' });
     const marker = `${RUN_MARKER}-team`;
+    const customTitle = `Custom Task Title ${marker}`;
     await runFeedbackFlow(page, {
         description: `E2E Test Teammitglied (${marker})`,
+        title: customTitle,
         authorName: null,
         assigneeKey: 'yurii',
         expectAssigneeUi: true,
         expectTaskLink: true,
     });
-    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeName: 'Yurii Kosynets' });
+    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeName: 'Yurii Kosynets', expectedTaskName: customTitle });
     log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
 });
 

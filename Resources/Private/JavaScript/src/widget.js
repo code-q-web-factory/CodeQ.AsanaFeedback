@@ -117,6 +117,23 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             alt: labels.screenshotPreviewAlt,
         });
 
+        // team members may name the Asana task themselves
+        let titleField = null;
+        let titleRow = null;
+        if (config.user.isTeamMember) {
+            titleField = h('input', {
+                className: 'cqaf-input',
+                id: 'cqaf-title',
+                type: 'text',
+                maxlength: 200,
+                placeholder: labels.titlePlaceholder,
+            });
+            titleRow = h('div', { className: 'cqaf-field' }, [
+                h('label', { className: 'cqaf-label', for: 'cqaf-title' }, [labels.titleLabel]),
+                titleField,
+            ]);
+        }
+
         const descriptionField = h('textarea', {
             className: 'cqaf-input cqaf-input--textarea',
             id: 'cqaf-description',
@@ -282,6 +299,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 previewImage,
                 h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => openAnnotator() }, [labels.editAnnotations]),
             ]),
+            titleRow,
             h('div', { className: 'cqaf-field' }, [
                 h('label', { className: 'cqaf-label', for: 'cqaf-description' }, [labels.descriptionLabel]),
                 descriptionField,
@@ -327,6 +345,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
             try {
                 const result = await submitFeedback({
+                    title: titleField ? titleField.value : '',
                     description,
                     authorName: authorField ? authorField.value : '',
                     assigneeKey: selectedAssignee.key,
@@ -352,6 +371,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         }
 
         const formData = new FormData();
+        formData.append('title', fields.title || '');
         formData.append('description', fields.description);
         formData.append('authorName', fields.authorName || '');
         formData.append('assigneeKey', fields.assigneeKey || '');

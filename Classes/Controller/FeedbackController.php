@@ -113,6 +113,7 @@ class FeedbackController extends ActionController
 
             $result = $this->feedbackService->submit(
                 [
+                    'title' => (string)($parsedBody['title'] ?? ''),
                     'description' => (string)($parsedBody['description'] ?? ''),
                     'authorName' => (string)($parsedBody['authorName'] ?? ''),
                     'assigneeKey' => (string)($parsedBody['assigneeKey'] ?? ''),

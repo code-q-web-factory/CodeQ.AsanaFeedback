@@ -99,6 +99,11 @@ class FeedbackService
 
         $assigneeGid = $this->resolveAssigneeGid($submission['assigneeKey'] ?? null, $userContext['isTeamMember']);
 
+        // only team members may name the task themselves
+        $title = $userContext['isTeamMember']
+            ? $this->sanitizeSingleLine((string)($submission['title'] ?? ''), 200)
+            : '';
+
         if ($screenshot === null || $screenshot->getError() !== UPLOAD_ERR_OK) {
             throw new ValidationException('The screenshot is missing or the upload failed.', 1752130013);
         }
@@ -118,7 +123,7 @@ class FeedbackService
         }
 
         try {
-            return $this->createAsanaTask($description, $authorName, $pageUrl, $assigneeGid, $submission['technicalContext'] ?? [], $screenshotFile, $videoFile);
+            return $this->createAsanaTask($title, $description, $authorName, $pageUrl, $assigneeGid, $submission['technicalContext'] ?? [], $screenshotFile, $videoFile);
         } finally {
             // temporary files must disappear regardless of transfer success
             foreach ([$screenshotFile, $videoFile] as $temporaryFile) {
@@ -135,6 +140,7 @@ class FeedbackService
      * @return array{success: bool, taskUrl: ?string, warnings: array<string>}
      */
     protected function createAsanaTask(
+        string $title,
         string $description,
         string $authorName,
         string $pageUrl,
@@ -162,13 +168,10 @@ class FeedbackService
             }
         }
 
-        $taskName = 'Website-Feedback: ' . $this->sanitizeSingleLine(mb_substr($description, 0, 80), 100)
-            . (mb_strlen($description) > 80 ? '…' : '');
-
         $task = $this->asanaClient->createTask(
             $projectGid,
             $sectionGid,
-            $taskName,
+            $this->buildTaskName($title, $description),
             $this->buildTaskNotes($description, $authorName, $pageUrl, $technicalContext),
             $assigneeGid
         );
@@ -278,6 +281,20 @@ class FeedbackService
             'mimeType' => $detectedMimeType,
             'extension' => $extensionMap[$detectedMimeType] ?? 'bin',
         ];
+    }
+
+    /**
+     * A title given by a team member becomes the task name as-is; without
+     * one the task is named after the description with a marker prefix.
+     */
+    protected function buildTaskName(string $title, string $description): string
+    {
+        if ($title !== '') {
+            return $title;
+        }
+
+        return 'Website-Feedback: ' . $this->sanitizeSingleLine(mb_substr($description, 0, 80), 100)
+            . (mb_strlen($description) > 80 ? '…' : '');
     }
 
     protected function buildTaskNotes(string $description, string $authorName, string $pageUrl, array $technicalContext): string

@@ -71,6 +71,21 @@ class FeedbackServiceTest extends TestCase
         self::assertSame(200, mb_strlen($truncated));
     }
 
+    public function testTaskNameUsesTitleWithoutPrefixWhenGiven(): void
+    {
+        self::assertSame('My custom title', $this->invoke('buildTaskName', ['My custom title', 'Some description']));
+    }
+
+    public function testTaskNameFallsBackToPrefixedDescriptionExcerpt(): void
+    {
+        self::assertSame('Website-Feedback: Some description', $this->invoke('buildTaskName', ['', 'Some description']));
+
+        $longDescription = str_repeat('word ', 40);
+        $fallbackName = $this->invoke('buildTaskName', ['', $longDescription]);
+        self::assertStringStartsWith('Website-Feedback: word', $fallbackName);
+        self::assertStringEndsWith('…', $fallbackName);
+    }
+
     public function testTaskNotesContainAllMandatoryParts(): void
     {
         $notes = $this->invoke('buildTaskNotes', [
