@@ -2,54 +2,74 @@
 
 A reusable Neos CMS package that adds a visual feedback widget to the rendered
 website. Visitors capture a screenshot of the current page, annotate it
-(freehand, rectangle, arrow, text, undo/redo, delete) and describe their
-feedback. Every submission creates exactly one task in a fixed Asana project —
-including the annotated screenshot as attachment, the page URL, the author and
-technical browser context. It replaces Marker.io for this use case.
+(freehand, rectangle, arrow, text, undo/redo, delete), give the report a
+title and description — and every submission creates exactly one task in a
+fixed Asana project, including the annotated screenshot as attachment, the
+page URL, the author and technical browser context. It replaces Marker.io
+for this use case.
 
 ## Features
 
 - Screenshot of the visible viewport, rendered DOM-based in the browser
-  (`html-to-image`); the widget itself is never part of the screenshot
+  (`html-to-image`) with a loading indicator during capture; the widget
+  itself is never part of the screenshot
 - Annotation editor on `Fabric.js`: freehand, rectangle, arrow, text,
   undo/redo, remove selection, five colors
 - Direct task creation in a fixed Asana project; the target section is
   resolved by name (configurable candidate list, e.g. `Todo`) or by fixed GID
-- Logged-in Neos users are identified server side; their display name is used
-  as author and cannot be overridden by the browser
 - Every user can set an optional task title (otherwise the task is named
-  after the description) and assign the task to a client visible assignee
-  ("visibleToClient: true"); members of the internal Code Q team (server
-  side allowlist) can pick every configured assignee and get the task link
-  after submission
-- Frontend availability is controlled per deployment context via
-  `enableInFrontend`; the decision is cached with the page, so disabled
-  sites stay fully cacheable
-- Authenticated Neos users always have a feedback button in the Neos
-  backend toolbar (next to the dimension switcher) that captures the full
+  `Website-Feedback: <description>`) and assign the task to a client visible
+  assignee (`visibleToClient: true`)
+- Logged-in Neos users are identified server side; their display name is
+  used as author and cannot be overridden by the browser
+- Members of the internal Code Q team (server side allowlist) can pick every
+  configured assignee and get the Asana task link after submission
+- Feedback button in the Neos backend toolbar (next to the dimension
+  switcher) for all logged-in users; its screenshot captures the full
   backend including the content canvas and inspector
+- Optional screencast recording (Screen Capture API, https only), attached
+  to the same task
 - German and English UI via XLIFF resources, following the site language
-- Styled after the Neos CMS backend (colors, typography, form elements)
+- Styled after the Neos CMS backend and hardened against site CSS
 - Rate limiting, server side MIME/size validation and cleanup of temp files
 
-## Installation
+## Setup
+
+### 1. Require the package
+
+For a distribution that contains the package under `DistributionPackages/`
+(path repository, as usual in Code Q projects):
 
 ```bash
-composer require codeq/asanafeedback
+composer require codeq/asanafeedback:@dev
 ```
 
-The package hooks into `Neos.Neos:Page` automatically (Fusion `autoInclude`)
-and renders the widget before the closing body tag. The enablement decision
-is cached with the page; only the small user specific bootstrap snippet is
-an uncached segment. The Neos backend toolbar button is registered through
-the Neos UI extensibility API and needs no site integration.
+Nothing else needs to be wired up manually: the Fusion integration
+(`autoInclude`), the routes, the security policy for the public endpoint,
+the authentication request pattern and the Neos backend toolbar plugin are
+all registered by the package itself.
 
-## Configuration
+### 2. Provide the Asana access token
 
-The package ships with Code Q wide defaults: the team allowlist
-(`teamAccountIdentifiers`), the selectable `assignees` (Roland, Felix,
-Yurii — including avatars and Asana user GIDs), the section name list,
-limits and rate limits. A project only has to configure its Asana project:
+Create (or reuse) a dedicated Asana integration user, generate a Personal
+Access Token in the Asana developer console and provide it as the
+environment variable `ASANA_FEEDBACK_ACCESS_TOKEN` — never in versioned
+configuration. Locally with ddev, for example:
+
+```yaml
+# .ddev/config.local.yaml (git-ignored)
+web_environment:
+  - ASANA_FEEDBACK_ACCESS_TOKEN=1/1234567890:abcdef...
+```
+
+followed by `ddev restart`. On Proserver/Beach the variable is set through
+the deployment secret store. The integration user must be a member of the
+target Asana project.
+
+### 3. Configure the Asana project
+
+The only mandatory per-project setting is the Asana project GID (the long
+number in the project URL):
 
 ```yaml
 # DistributionPackages/Vendor.Site/Configuration/Settings.AsanaFeedback.yaml
@@ -58,8 +78,38 @@ CodeQ:
     asanaProjectGid: '1216274953146548'
 ```
 
-All defaults (see `Configuration/Settings.yaml` in this package) can be
-overridden per project, e.g.:
+Tasks are placed in the first section whose name matches the configured
+candidate list (`Todo`, `Todos`, `Organisation` — case-insensitive). Make
+sure the Asana project has such a section, configure your own
+`asanaSectionNames`, or pin a fixed `asanaSectionGid`. If no section can be
+resolved, submissions fail with a controlled error message.
+
+### 4. Decide where the frontend widget is visible
+
+`enableInFrontend` controls whether the widget is rendered on the website
+for all visitors. The package default is `false`, but it ships context
+configuration that enables it in the `Development`,
+`Production/Proserver/Staging` and `Production/Beach/Staging` Flow contexts.
+Projects can override this per context in their global configuration, e.g.:
+
+```yaml
+# Configuration/Production/Proserver/Staging/Settings.yaml
+CodeQ:
+  AsanaFeedback:
+    enableInFrontend: false
+```
+
+The decision is cached with the page (disabled sites stay fully cacheable),
+so changing it requires a content cache flush:
+`./flow flow:cache:flushone Neos_Fusion_Content`.
+
+Independent of this flag, every logged-in Neos user always has the feedback
+button in the backend toolbar.
+
+## All configuration options
+
+The package defaults (see `Configuration/Settings.yaml`) already contain the
+Code Q team mapping; every value can be overridden per project:
 
 ```yaml
 CodeQ:
@@ -69,54 +119,75 @@ CodeQ:
     asana:
       accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
 
-    # optional, when empty the section is resolved by name:
+    asanaProjectGid: ''
+    # optional fixed section; when empty the section is resolved by name:
     asanaSectionGid: ''
     asanaSectionNames: ['Todo', 'Todos', 'Organisation']
 
     limits:
-      screenshotBytes: 10485760
-      videoBytes: 100000000
+      screenshotBytes: 10485760      # 10 MB
+      videoBytes: 100000000          # Asana attachment limit
       descriptionCharacters: 10000
 
-    rateLimit:
+    rateLimit:                       # per client IP
       maxPerMinute: 5
       maxPerHour: 40
 
-    teamAccountIdentifiers: ['roland.schuetz', 'felix.gradinaru']
+    # Neos account identifiers of the internal team: these users can pick
+    # every assignee, get the task link and are named by their Neos account
+    teamAccountIdentifiers:
+      - 'roland.schuetz'
+      - 'felix.gradinaru'
+
+    # selectable assignees; "visibleToClient: true" entries can be picked
+    # by every visitor, the others only by team members
+    assignees:
+      roland:
+        label: 'Roland'
+        asanaUserGid: '422230010221'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
+        visibleToClient: true
+      yurii:
+        label: 'Yurii'
+        asanaUserGid: '510973132418883'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/yurii.jpg'
+        visibleToClient: false
 ```
-
-The Asana access token must be provided as environment variable
-(`ASANA_FEEDBACK_ACCESS_TOKEN`) or other non-versioned deployment secret.
-
-`enableInFrontend` defaults to `false`, but the package enables it in the
-`Development`, `Production/Proserver/Staging` and `Production/Beach/Staging`
-Flow contexts (see the context folders in `Configuration/`). Projects can
-override this per context in their global configuration. Changing
-`enableInFrontend` requires a content cache flush because the decision is
-cached with the pages.
 
 ## Security notes
 
 - All Asana communication happens exclusively server side; token, project,
   section and assignee GIDs are never delivered to the browser
-- Submitted assignees are validated against the YAML allowlist; project and
-  section can never be chosen by the client
+- Submitted assignees are validated server side against the allowlist and
+  the `visibleToClient` flag; project and section can never be chosen by
+  the client
 - The submit endpoint is rate limited per client IP and validates MIME type
   (content sniffing), file size and description length server side
 - Uploaded files are stored under server generated temporary names and are
   removed after the transfer, successful or not
 
-## Frontend build
+## Development
 
-The built widget assets are committed under `Resources/Public`, deployments
-need no node step. To rebuild after changes:
+The built assets are committed under `Resources/Public`, deployments need no
+node step. To rebuild after changes (builds the website widget and the
+backend toolbar plugin):
 
 ```bash
-# website widget (Scripts/Widget.js, Styles/Widget.css)
-cd Resources/Private/JavaScript && npm install && npm run build
+cd Resources/Private/JavaScript && npm install
+cd ../BackendUi && npm install && cd ../JavaScript
+npm run build
+```
 
-# Neos backend toolbar plugin (Backend/Plugin.js)
-cd Resources/Private/BackendUi && npm install && npm run build
+Tests:
+
+```bash
+# unit tests (from the distribution root)
+bin/phpunit --bootstrap Build/BuildEssentials/PhpUnit/UnitTestBootstrap.php \
+    DistributionPackages/CodeQ.AsanaFeedback/Tests/Unit
+
+# end-to-end tests in Chromium, Firefox and WebKit incl. Asana verification
+cd Tests/E2E && npm install playwright && npx playwright install
+ASANA_FEEDBACK_ACCESS_TOKEN=... node run-tests.mjs
 ```
 
 ## Open source dependencies

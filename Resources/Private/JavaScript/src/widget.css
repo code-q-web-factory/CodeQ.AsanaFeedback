@@ -477,6 +477,26 @@
     border-color: #ffffff;
 }
 
+/* ---------- capture loading indicator ---------- */
+#codeq-asana-feedback-root .cqaf-capture-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: auto;
+    padding: 16px 22px;
+    background: var(--cqaf-bg-panel);
+    border: 1px solid var(--cqaf-border);
+    border-radius: 2px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+}
+
+#codeq-asana-feedback-root .cqaf-capture-indicator .cqaf-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--cqaf-primary);
+}
+
 /* ---------- misc ---------- */
 #codeq-asana-feedback-root .cqaf-spin {
     animation: cqaf-rotate 0.8s linear infinite;

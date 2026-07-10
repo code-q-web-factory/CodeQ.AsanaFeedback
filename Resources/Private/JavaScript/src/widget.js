@@ -76,6 +76,12 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
     async function startCapture() {
         feedbackButton.disabled = true;
         feedbackButton.classList.add('cqaf-fab--busy');
+        // rendering the page DOM can take a few seconds; the indicator lives
+        // inside the widget root and is excluded from the screenshot itself
+        showOverlay(h('div', { className: 'cqaf-capture-indicator', role: 'status' }, [
+            icon('spinner'),
+            h('span', {}, [labels.capturing]),
+        ]));
         try {
             // the widget root is filtered out, the button never shows up in the image
             state.screenshotCanvas = await captureViewport({ includeIframes });
@@ -142,16 +148,11 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
         const descriptionError = h('p', { className: 'cqaf-field-error', hidden: true }, [labels.errorDescriptionRequired]);
 
+        // logged-in users are identified server side, no name row needed;
+        // anonymous visitors can state who they are
         let authorField = null;
         const identityRows = [];
-        if (config.user.authenticated) {
-            identityRows.push(
-                h('div', { className: 'cqaf-field' }, [
-                    h('label', { className: 'cqaf-label' }, [labels.authorLabel]),
-                    h('p', { className: 'cqaf-author-name' }, [config.user.authorName || '']),
-                ])
-            );
-        } else {
+        if (!config.user.authenticated) {
             authorField = h('input', {
                 className: 'cqaf-input',
                 id: 'cqaf-author',
