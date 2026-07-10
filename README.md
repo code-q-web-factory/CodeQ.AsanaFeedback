@@ -43,6 +43,21 @@ the Neos UI extensibility API and needs no site integration.
 
 ## Configuration
 
+The package ships with Code Q wide defaults: the team allowlist
+(`teamAccountIdentifiers`), the selectable `assignees` (Roland, Felix,
+Yurii — including avatars and Asana user GIDs), the section name list,
+limits and rate limits. A project only has to configure its Asana project:
+
+```yaml
+# DistributionPackages/Vendor.Site/Configuration/Settings.AsanaFeedback.yaml
+CodeQ:
+  AsanaFeedback:
+    asanaProjectGid: '1216274953146548'
+```
+
+All defaults (see `Configuration/Settings.yaml` in this package) can be
+overridden per project, e.g.:
+
 ```yaml
 CodeQ:
   AsanaFeedback:
@@ -51,7 +66,6 @@ CodeQ:
     asana:
       accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
 
-    asanaProjectGid: '1216274953146548'
     # optional, when empty the section is resolved by name:
     asanaSectionGid: ''
     asanaSectionNames: ['Todo', 'Todos', 'Organisation']
@@ -65,24 +79,18 @@ CodeQ:
       maxPerMinute: 5
       maxPerHour: 40
 
-    teamAccountIdentifiers:
-      - 'roland.schuetz'
-      - 'felix.gradinaru'
-
-    assignees:
-      roland:
-        label: 'Roland'
-        asanaUserGid: '422230010221'
-        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
+    teamAccountIdentifiers: ['roland.schuetz', 'felix.gradinaru']
 ```
 
 The Asana access token must be provided as environment variable
 (`ASANA_FEEDBACK_ACCESS_TOKEN`) or other non-versioned deployment secret.
-The frontend widget is typically enabled per Flow context, e.g. in
-`Configuration/Production/Proserver/Staging/Settings.AsanaFeedback.yaml` or
-`Configuration/Production/Beach/Staging/Settings.AsanaFeedback.yaml`, while
-the package default keeps it off everywhere else. Changing `enableInFrontend`
-requires a content cache flush because the decision is cached with the pages.
+
+`enableInFrontend` defaults to `false`, but the package enables it in the
+`Development`, `Production/Proserver/Staging` and `Production/Beach/Staging`
+Flow contexts (see the context folders in `Configuration/`). Projects can
+override this per context in their global configuration. Changing
+`enableInFrontend` requires a content cache flush because the decision is
+cached with the pages.
 
 ## Security notes
 

@@ -74,14 +74,25 @@ CodeQ:
       maxPerHour: 40
 
     # Neos account identifiers of internal Code Q team members. Only these
-    # users get the assignee selection and the Asana task link on success.
-    teamAccountIdentifiers: []
+    # users get the title field, the assignee selection and the Asana task
+    # link on success.
+    teamAccountIdentifiers:
+      - 'roland.schuetz'
+      - 'felix.gradinaru'
 
     # Selectable Asana assignees; keys are stable identifiers submitted by
-    # the widget and validated server-side against this list.
-    # Example:
-    #   roland:
-    #     label: 'Roland'
-    #     asanaUserGid: '1234567890'
-    #     avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
-    assignees: {}
+    # the widget and validated server-side against this list. Yurii has no
+    # Neos account but can be assigned.
+    assignees:
+      roland:
+        label: 'Roland'
+        asanaUserGid: '422230010221'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/roland.jpg'
+      felix:
+        label: 'Felix'
+        asanaUserGid: '1199657890349514'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/felix.jpg'
+      yurii:
+        label: 'Yurii'
+        asanaUserGid: '510973132418883'
+        avatar: 'resource://CodeQ.AsanaFeedback/Public/Images/Team/yurii.jpg'

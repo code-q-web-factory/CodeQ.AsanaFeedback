@@ -1,0 +1,5 @@
+# In development contexts the feedback widget is rendered on the frontend
+# for all visitors by default. Projects can override this per context.
+CodeQ:
+  AsanaFeedback:
+    enableInFrontend: true

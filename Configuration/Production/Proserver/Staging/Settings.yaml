@@ -1,0 +1,6 @@
+# On Proserver staging systems the feedback widget is available to all
+# website visitors by default (clients review the site there), while
+# production keeps enableInFrontend: false.
+CodeQ:
+  AsanaFeedback:
+    enableInFrontend: true
