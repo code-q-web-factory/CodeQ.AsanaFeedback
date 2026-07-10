@@ -78,9 +78,11 @@ CodeQ:
 
 The Asana access token must be provided as environment variable
 (`ASANA_FEEDBACK_ACCESS_TOKEN`) or other non-versioned deployment secret.
-The frontend widget is typically enabled per context, e.g. in
-`Configuration/Staging/Settings.yaml`. Changing `enableInFrontend` requires
-a content cache flush because the decision is cached with the pages.
+The frontend widget is typically enabled per Flow context, e.g. in
+`Configuration/Production/Proserver/Staging/Settings.AsanaFeedback.yaml` or
+`Configuration/Production/Beach/Staging/Settings.AsanaFeedback.yaml`, while
+the package default keeps it off everywhere else. Changing `enableInFrontend`
+requires a content cache flush because the decision is cached with the pages.
 
 ## Security notes
 
