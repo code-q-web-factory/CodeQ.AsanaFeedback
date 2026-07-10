@@ -55,6 +55,7 @@ export class Annotator {
                 title: this.labels[labelKey],
                 'aria-label': this.labels[labelKey],
                 'aria-pressed': 'false',
+                dataset: { tool },
                 onClick: () => this.selectTool(tool),
             }, [icon(iconName)]);
             this.toolButtons[tool] = button;
@@ -76,15 +77,15 @@ export class Annotator {
         }
         toolbarLeft.append(colorGroup);
 
-        this.undoButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.undo, 'aria-label': this.labels.undo, onClick: () => this.undo() }, [icon('undo')]);
-        this.redoButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.redo, 'aria-label': this.labels.redo, onClick: () => this.redo() }, [icon('redo')]);
-        this.deleteButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.deleteAnnotation, 'aria-label': this.labels.deleteAnnotation, onClick: () => this.deleteSelection() }, [icon('trash')]);
+        this.undoButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.undo, 'aria-label': this.labels.undo, dataset: { action: 'undo' }, onClick: () => this.undo() }, [icon('undo')]);
+        this.redoButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.redo, 'aria-label': this.labels.redo, dataset: { action: 'redo' }, onClick: () => this.redo() }, [icon('redo')]);
+        this.deleteButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.deleteAnnotation, 'aria-label': this.labels.deleteAnnotation, dataset: { action: 'delete' }, onClick: () => this.deleteSelection() }, [icon('trash')]);
         toolbarLeft.append(this.undoButton, this.redoButton, this.deleteButton);
 
         const toolbarRight = h('div', { className: 'cqaf-annotator__actions' }, [
-            h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', onClick: () => this.callbacks.onCancel() }, [this.labels.cancel]),
-            h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', onClick: () => this.callbacks.onRetake() }, [this.labels.retakeScreenshot]),
-            h('button', { type: 'button', className: 'cqaf-button cqaf-button--primary', onClick: () => this.finish() }, [this.labels.continueButton]),
+            h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', dataset: { action: 'cancel' }, onClick: () => this.callbacks.onCancel() }, [this.labels.cancel]),
+            h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', dataset: { action: 'retake' }, onClick: () => this.callbacks.onRetake() }, [this.labels.retakeScreenshot]),
+            h('button', { type: 'button', className: 'cqaf-button cqaf-button--primary', dataset: { action: 'continue' }, onClick: () => this.finish() }, [this.labels.continueButton]),
         ]);
 
         this.canvasWrapper = h('div', { className: 'cqaf-annotator__canvas' });
