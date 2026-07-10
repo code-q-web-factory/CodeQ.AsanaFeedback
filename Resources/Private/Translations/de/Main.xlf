@@ -3,7 +3,7 @@
     <file original="" product-name="CodeQ.AsanaFeedback" source-language="en" target-language="de" datatype="plaintext">
         <body>
             <trans-unit id="buttonLabel" xml:space="preserve"><source>Feedback</source><target>Feedback</target></trans-unit>
-            <trans-unit id="panelTitle" xml:space="preserve"><source>Give feedback</source><target>Feedback geben</target></trans-unit>
+            <trans-unit id="panelTitle" xml:space="preserve"><source>Write Code Q</source><target>Write Code Q</target></trans-unit>
             <trans-unit id="introText" xml:space="preserve"><source>Capture a screenshot of the current page, annotate it and describe your feedback.</source><target>Erstelle einen Screenshot der aktuellen Seite, markiere Stellen und beschreibe dein Feedback.</target></trans-unit>
             <trans-unit id="captureScreenshot" xml:space="preserve"><source>Capture screenshot</source><target>Screenshot erstellen</target></trans-unit>
             <trans-unit id="capturing" xml:space="preserve"><source>Capturing screenshot …</source><target>Screenshot wird erstellt …</target></trans-unit>

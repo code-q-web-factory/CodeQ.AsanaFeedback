@@ -104,8 +104,17 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     const form = page.locator('.cqaf-form');
     await form.waitFor({ state: 'visible', timeout: 15000 });
 
-    // screenshot preview must be visible before sending
-    if (!(await page.locator('.cqaf-form__preview').isVisible())) throw new Error('screenshot preview missing');
+    // screenshot preview must be visible, span the form width and use the branded title
+    const preview = page.locator('.cqaf-form__preview');
+    if (!(await preview.isVisible())) throw new Error('screenshot preview missing');
+    const previewBox = await preview.boundingBox();
+    const previewWrapperBox = await page.locator('.cqaf-form__preview-wrap').boundingBox();
+    if (!previewBox || !previewWrapperBox || Math.abs(previewBox.width - previewWrapperBox.width) > 1) {
+        throw new Error('screenshot preview does not span the form width');
+    }
+    if ((await page.locator('.cqaf-panel__title').textContent()) !== 'Write Code Q') {
+        throw new Error('feedback panel title is not branded');
+    }
 
     const assigneeCount = await page.locator('.cqaf-assignee').count();
     if (assigneeCount !== expectedAssigneeCount) throw new Error(`expected ${expectedAssigneeCount} assignees, saw ${assigneeCount}`);
