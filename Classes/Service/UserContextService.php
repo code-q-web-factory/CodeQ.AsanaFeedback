@@ -78,12 +78,14 @@ class UserContextService
     }
 
     /**
-     * Whether the widget may be shown to the current visitor: authenticated
-     * Neos users always, anonymous visitors only when enabled by setting.
+     * Whether the current visitor may submit feedback: authenticated Neos
+     * users always (they use the backend toolbar button even when the
+     * frontend widget is disabled), everyone else only when the frontend
+     * widget is enabled by configuration.
      */
     public function isWidgetEnabledForCurrentUser(): bool
     {
-        if (($this->settings['enableForAnonymousUsersInFrontend'] ?? false) === true) {
+        if (($this->settings['enableInFrontend'] ?? false) === true) {
             return true;
         }
 

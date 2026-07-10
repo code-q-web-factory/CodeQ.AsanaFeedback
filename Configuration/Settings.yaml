@@ -26,11 +26,22 @@ Neos:
       autoInclude:
         CodeQ.AsanaFeedback: true
 
+    Ui:
+      resources:
+        javascript:
+          'CodeQ.AsanaFeedback:Plugin':
+            resource: 'resource://CodeQ.AsanaFeedback/Public/Backend/Plugin.js'
+        stylesheets:
+          'CodeQ.AsanaFeedback:Widget':
+            resource: 'resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css'
+
 CodeQ:
   AsanaFeedback:
-    # Whether visitors without a Neos backend session may use the widget.
-    # Authenticated Neos users can always use it, independent of this flag.
-    enableForAnonymousUsersInFrontend: false
+    # Whether the widget is rendered on the website frontend. The decision
+    # is cached with the page, so disabled sites stay fully cacheable.
+    # Authenticated Neos users always have the toolbar button inside the
+    # Neos backend, independent of this flag.
+    enableInFrontend: false
 
     asana:
       # Personal access token of the Asana integration user, provided via
@@ -49,7 +60,6 @@ CodeQ:
     # (matched case-insensitively against the project sections).
     asanaSectionNames:
       - 'Todo'
-      - 'ToDo'
       - 'Todos'
       - 'Organisation'
 
@@ -61,7 +71,7 @@ CodeQ:
     rateLimit:
       # Requests per client IP; protects the public endpoint against abuse.
       maxPerMinute: 5
-      maxPerHour: 20
+      maxPerHour: 40
 
     # Neos account identifiers of internal Code Q team members. Only these
     # users get the assignee selection and the Asana task link on success.

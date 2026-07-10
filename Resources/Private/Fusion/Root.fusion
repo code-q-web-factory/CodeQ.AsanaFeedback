@@ -1,36 +1,23 @@
 ##
-# Injects the feedback widget into every rendered page right before the
-# closing body tag. The decision whether the widget is shown is made per
-# request inside an uncached segment, so the content cached page markup
-# never contains user specific data and anonymous visitors receive no
-# widget code at all while the feature is disabled for them.
+# Renders the feedback widget right before the closing body tag. The
+# enablement decision is based on configuration only and is cached with
+# the page: with "enableInFrontend: false" pages stay fully cacheable and
+# contain no widget code at all. When enabled, only the small widget
+# snippet is evaluated per request (uncached segment), because it carries
+# user specific data like author name, team status and assignees.
 #
 prototype(Neos.Neos:Page) {
-    @process.codeQAsanaFeedback = CodeQ.AsanaFeedback:Integration.PageProcessor
-}
-
-prototype(CodeQ.AsanaFeedback:Integration.PageProcessor) < prototype(Neos.Fusion:Component) {
-    page = ${value}
-    widget = CodeQ.AsanaFeedback:Integration.WidgetInjection
-    renderer = ${String.replace(props.page, '</body>', props.widget + '</body>')}
+    codeQAsanaFeedback = CodeQ.AsanaFeedback:Integration.WidgetInjection {
+        @position = 'before closingBodyTag'
+    }
 }
 
 prototype(CodeQ.AsanaFeedback:Integration.WidgetInjection) < prototype(Neos.Fusion:Component) {
-    # evaluated on every request so login state and configuration decide
-    # server side whether widget markup is delivered
-    @cache {
-        mode = 'uncached'
-        context {
-            1 = 'node'
-            2 = 'documentNode'
-            3 = 'site'
-        }
-    }
-
     renderer = Neos.Fusion:Case {
         widgetEnabled {
-            # never render inside the Neos backend editing iframe
-            condition = ${!documentNode.context.inBackend && AsanaFeedback.isWidgetEnabled()}
+            # never render inside the Neos backend editing iframe; the
+            # backend has its own toolbar button (see Backend plugin)
+            condition = ${!documentNode.context.inBackend && Configuration.setting('CodeQ.AsanaFeedback.enableInFrontend')}
             renderer = CodeQ.AsanaFeedback:Integration.Widget
         }
         default {
@@ -41,6 +28,17 @@ prototype(CodeQ.AsanaFeedback:Integration.WidgetInjection) < prototype(Neos.Fusi
 }
 
 prototype(CodeQ.AsanaFeedback:Integration.Widget) < prototype(Neos.Fusion:Component) {
+    # evaluated on every request: the bootstrap configuration contains the
+    # current user identity and must never end up in the content cache
+    @cache {
+        mode = 'uncached'
+        context {
+            1 = 'node'
+            2 = 'documentNode'
+            3 = 'site'
+        }
+    }
+
     submitUri = Neos.Fusion:ActionUri {
         package = 'CodeQ.AsanaFeedback'
         controller = 'Feedback'
