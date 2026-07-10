@@ -142,6 +142,10 @@ CodeQ:
     teamAccountIdentifiers:
       - 'roland.schuetz'
       - 'felix.gradinaru'
+      - 'daniel.schmelz'
+      - 'clara.borek'
+      - 'michael.koepl'
+      - 'dion.holder'
 
     # selectable assignees; "visibleToClient: true" entries can be picked
     # by every visitor, the others only by team members

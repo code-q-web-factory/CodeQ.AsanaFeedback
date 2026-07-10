@@ -80,8 +80,16 @@ CodeQ:
     # users get the title field, the assignee selection and the Asana task
     # link on success.
     teamAccountIdentifiers:
+      - 'admin'
       - 'roland.schuetz'
+      - 'rolandschuetz'
       - 'felix.gradinaru'
+      - 'felixgradinaru'
+      - 'fg'
+      - 'daniel.schmelz'
+      - 'clara.borek'
+      - 'michael.koepl'
+      - 'dion.holder'
 
     # Selectable Asana assignees; keys are stable identifiers submitted by
     # the widget and validated server-side against this list. Entries with
