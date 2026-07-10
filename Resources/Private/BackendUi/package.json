@@ -1,0 +1,15 @@
+{
+  "name": "codeq-asanafeedback-backend-plugin",
+  "private": true,
+  "description": "Neos UI toolbar plugin for CodeQ.AsanaFeedback",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "@neos-project/neos-ui-extensibility": "^8.3.0",
+    "react": "^16.14.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

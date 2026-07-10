@@ -11,6 +11,7 @@ use CodeQ\AsanaFeedback\Exception\ValidationException;
 use CodeQ\AsanaFeedback\Service\FeedbackService;
 use CodeQ\AsanaFeedback\Service\RateLimiter;
 use CodeQ\AsanaFeedback\Service\UserContextService;
+use CodeQ\AsanaFeedback\Service\WidgetConfigService;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Psr\Log\LoggerInterface;
@@ -45,10 +46,37 @@ class FeedbackController extends ActionController
     protected $rateLimiter;
 
     /**
+     * @Flow\Inject
+     * @var WidgetConfigService
+     */
+    protected $widgetConfigService;
+
+    /**
      * @Flow\Inject(name="Neos.Flow:SystemLogger")
      * @var LoggerInterface
      */
     protected $logger;
+
+    /**
+     * Bootstrap configuration for the Neos backend toolbar plugin. Only
+     * available to authenticated Neos users; the website frontend embeds
+     * the same configuration through the Fusion integration instead.
+     */
+    public function configAction(string $locale = 'en'): string
+    {
+        $this->response->setContentType('application/json');
+
+        if (!$this->userContextService->getCurrentUserContext()['authenticated']) {
+            return $this->jsonError(403, 'forbidden', 'The feedback configuration requires a Neos backend session.');
+        }
+
+        $submitUrl = $this->uriBuilder->reset()->setFormat('json')->uriFor('submit', [], 'Feedback', 'CodeQ.AsanaFeedback');
+
+        return json_encode(
+            $this->widgetConfigService->buildConfig($locale, $submitUrl),
+            JSON_THROW_ON_ERROR
+        );
+    }
 
     /**
      * Accepts one feedback submission as multipart/form-data and creates

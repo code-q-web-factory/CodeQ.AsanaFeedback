@@ -7,7 +7,7 @@
 privilegeTargets:
   'Neos\Flow\Security\Authorization\Privilege\Method\MethodPrivilege':
     'CodeQ.AsanaFeedback:SubmitFeedback':
-      matcher: 'method(CodeQ\AsanaFeedback\Controller\FeedbackController->submitAction())'
+      matcher: 'method(CodeQ\AsanaFeedback\Controller\FeedbackController->(submit|config)Action())'
 
 roles:
   'Neos.Flow:Everybody':

@@ -1,4 +1,15 @@
 -
+  name: 'AsanaFeedback: Widget configuration'
+  uriPattern: 'codeq-asana-feedback/config'
+  defaults:
+    '@package': 'CodeQ.AsanaFeedback'
+    '@controller': 'Feedback'
+    '@action': 'config'
+    '@format': 'json'
+  httpMethods: ['GET']
+  appendExceedingArguments: true
+
+-
   name: 'AsanaFeedback: Submit feedback'
   uriPattern: 'codeq-asana-feedback/submit'
   defaults:
