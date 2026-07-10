@@ -221,7 +221,8 @@ class FeedbackService
     {
         $assigneeKey = trim((string)$assigneeKey);
         if ($assigneeKey === '') {
-            return null;
+            $defaultAssigneeGid = trim((string)($this->settings['defaultAssigneeGid'] ?? ''));
+            return $defaultAssigneeGid !== '' ? $defaultAssigneeGid : null;
         }
 
         $assignees = $this->settings['assignees'] ?? [];

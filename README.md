@@ -21,7 +21,8 @@ for this use case.
   resolved by name (configurable candidate list, e.g. `Todo`) or by fixed GID
 - Every user can set an optional task title (otherwise the task is named
   `Website-Feedback: <description>`) and assign the task to a client visible
-  assignee (`visibleToClient: true`)
+  assignee (`visibleToClient: true`); submissions without an explicit choice
+  use the configured default assignee
 - Logged-in Neos users are identified server side; their display name is
   used as author and cannot be overridden by the browser
 - Members of the internal Code Q team (server side allowlist) can pick every
@@ -122,6 +123,7 @@ CodeQ:
       accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
 
     asanaProjectGid: ''
+    defaultAssigneeGid: '422230010221' # Roland; used when none is selected
     # optional fixed section; when empty the section is resolved by name:
     asanaSectionGid: ''
     asanaSectionNames: ['Todo', 'Todos', 'Organisation']

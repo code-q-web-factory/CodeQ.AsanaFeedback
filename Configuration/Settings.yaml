@@ -52,6 +52,9 @@ CodeQ:
     # The fixed Asana project every feedback task is created in.
     asanaProjectGid: ''
 
+    # Assignee used when the visitor does not explicitly select one.
+    defaultAssigneeGid: '422230010221'
+
     # Optional fixed section GID. When empty, the section is resolved at
     # submit time by looking up the project sections by name.
     asanaSectionGid: ''

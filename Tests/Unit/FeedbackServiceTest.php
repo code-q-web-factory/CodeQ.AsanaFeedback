@@ -19,6 +19,7 @@ class FeedbackServiceTest extends TestCase
     {
         $this->feedbackService = new FeedbackService();
         $this->inject('settings', [
+            'defaultAssigneeGid' => '422230010221',
             'assignees' => [
                 'roland' => ['label' => 'Roland', 'asanaUserGid' => '422230010221', 'visibleToClient' => true],
                 'yurii' => ['label' => 'Yurii', 'asanaUserGid' => '510973132418883', 'visibleToClient' => false],
@@ -60,10 +61,10 @@ class FeedbackServiceTest extends TestCase
         $this->invoke('resolveAssigneeGid', ['someone-else', true]);
     }
 
-    public function testMissingAssigneeResolvesToNull(): void
+    public function testMissingAssigneeResolvesToConfiguredDefault(): void
     {
-        self::assertNull($this->invoke('resolveAssigneeGid', ['', true]));
-        self::assertNull($this->invoke('resolveAssigneeGid', [null, true]));
+        self::assertSame('422230010221', $this->invoke('resolveAssigneeGid', ['', true]));
+        self::assertSame('422230010221', $this->invoke('resolveAssigneeGid', [null, true]));
     }
 
     public function testSingleLineSanitizationRemovesControlCharactersAndTruncates(): void

@@ -5,6 +5,8 @@ const TOKEN = process.env.ASANA_FEEDBACK_ACCESS_TOKEN;
 if (!TOKEN) throw new Error('Set ASANA_FEEDBACK_ACCESS_TOKEN');
 const PROJECT_GID = '1216274953146548';
 const SECTION_GID = '1216274953146549'; // "Todo"
+const ROLAND_GID = '422230010221';
+const FELIX_GID = '1199657890349514';
 const YURII_GID = '510973132418883';
 const RUN_MARKER = `cqaf-e2e-${Date.now()}`;
 
@@ -133,7 +135,7 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     return payload;
 }
 
-async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeName, expectedTaskName }) {
+async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeGid, expectedTaskName }) {
     let task = null;
     for (let attempt = 0; attempt < 5 && !task; attempt++) {
         task = await findTaskByMarker(marker);
@@ -153,8 +155,8 @@ async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeName,
         throw new Error(`missing Website-Feedback prefix: "${task.name}"`);
     }
 
-    const actualAssignee = task.assignee ? task.assignee.name : null;
-    if ((expectedAssigneeName || null) !== actualAssignee) throw new Error(`assignee mismatch: expected ${expectedAssigneeName}, got ${actualAssignee}`);
+    const actualAssigneeGid = task.assignee ? task.assignee.gid : null;
+    if ((expectedAssigneeGid || null) !== actualAssigneeGid) throw new Error(`assignee mismatch: expected ${expectedAssigneeGid}, got ${actualAssigneeGid}`);
 
     const attachments = await asana('GET', `/attachments?parent=${task.gid}&opt_fields=name,size`);
     if (attachments.length < 1) throw new Error('no attachment on task');
@@ -198,7 +200,7 @@ for (const [engineName, engine] of Object.entries(engines)) {
         const verification = await verifyTaskInAsana({
             marker,
             expectedAuthor: 'E2E Testbot',
-            expectedAssigneeName: engineName === 'chromium' ? 'Felix Gradinaru' : null,
+            expectedAssigneeGid: engineName === 'chromium' ? FELIX_GID : ROLAND_GID,
             ...(anonymousTitle ? { expectedTaskName: anonymousTitle } : {}),
         });
         log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
@@ -217,7 +219,7 @@ await testScenario('chromium-admin-non-team', chromium, async (page) => {
         expectedAssigneeCount: 2,
         expectTaskLink: false,
     });
-    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Admin Admin', expectedAssigneeName: null });
+    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Admin Admin', expectedAssigneeGid: ROLAND_GID });
     log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
 });
 
@@ -234,7 +236,7 @@ await testScenario('chromium-team-roland', chromium, async (page) => {
         expectedAssigneeCount: 3,
         expectTaskLink: true,
     });
-    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeName: 'Yurii Kosynets', expectedTaskName: customTitle });
+    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeGid: YURII_GID, expectedTaskName: customTitle });
     log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
 });
 
