@@ -70,6 +70,26 @@ class FeedbackController extends ActionController
             return $this->jsonError(403, 'forbidden', 'The feedback configuration requires a Neos backend session.');
         }
 
+        return $this->widgetConfigJson($locale);
+    }
+
+    /**
+     * Bootstrap configuration for frontend integrations that cannot render
+     * the Fusion embed, such as static or headless frontends.
+     */
+    public function frontendConfigAction(string $locale = 'en'): string
+    {
+        $this->response->setContentType('application/json');
+
+        if (!$this->userContextService->isWidgetEnabledForCurrentUser()) {
+            return $this->jsonError(403, 'forbidden', 'The feedback widget is not enabled for frontend visitors.');
+        }
+
+        return $this->widgetConfigJson($locale);
+    }
+
+    protected function widgetConfigJson(string $locale): string
+    {
         $submitUrl = $this->uriBuilder->reset()->setFormat('json')->uriFor('submit', [], 'Feedback', 'CodeQ.AsanaFeedback');
 
         return json_encode(

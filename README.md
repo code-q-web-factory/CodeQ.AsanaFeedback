@@ -109,6 +109,21 @@ so changing it requires a content cache flush:
 Independent of this flag, every logged-in Neos user always has the feedback
 button in the backend toolbar.
 
+### Static and headless frontend embeds
+
+Frontends that do not render the Fusion integration can request the same safe
+frontend configuration from
+`/codeq-asana-feedback/frontend-config?locale=en`. The endpoint is available
+whenever `enableInFrontend` permits the current visitor to use the widget; the
+authenticated backend configuration endpoint remains unchanged.
+
+Embed the returned JSON as the text content of a
+`#codeq-asana-feedback-config` script element, then load
+`Public/Styles/Widget.css` and `Public/Scripts/Widget.js`. Hosts whose visible
+content lives in same-origin iframes can add
+`data-include-iframes="true"` to the configuration element so the iframe
+content is composited into the screenshot.
+
 ## All configuration options
 
 The package defaults (see `Configuration/Settings.yaml`) already contain the

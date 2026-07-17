@@ -1,4 +1,5 @@
 import { createFeedbackWidget } from './widget';
+import { widgetOptionsForConfigElement } from './bootstrap';
 
 /**
  * Website frontend entry point: reads the server rendered bootstrap
@@ -10,7 +11,10 @@ function bootstrap() {
     if (!configElement) {
         return;
     }
-    createFeedbackWidget(JSON.parse(configElement.textContent), { floatingButton: true });
+    createFeedbackWidget(
+        JSON.parse(configElement.textContent),
+        widgetOptionsForConfigElement(configElement)
+    );
 }
 
 if (document.readyState === 'loading') {

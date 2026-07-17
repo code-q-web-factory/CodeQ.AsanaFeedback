@@ -10,6 +10,17 @@
   appendExceedingArguments: true
 
 -
+  name: 'AsanaFeedback: Frontend widget configuration'
+  uriPattern: 'codeq-asana-feedback/frontend-config'
+  defaults:
+    '@package': 'CodeQ.AsanaFeedback'
+    '@controller': 'Feedback'
+    '@action': 'frontendConfig'
+    '@format': 'json'
+  httpMethods: ['GET']
+  appendExceedingArguments: true
+
+-
   name: 'AsanaFeedback: Submit feedback'
   uriPattern: 'codeq-asana-feedback/submit'
   defaults:
