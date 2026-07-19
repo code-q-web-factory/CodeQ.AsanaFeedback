@@ -30,6 +30,7 @@
             <trans-unit id="cancel" xml:space="preserve"><source>Cancel</source><target>Abbrechen</target></trans-unit>
             <trans-unit id="back" xml:space="preserve"><source>Back</source><target>Zurück</target></trans-unit>
             <trans-unit id="sending" xml:space="preserve"><source>Sending …</source><target>Wird gesendet …</target></trans-unit>
+            <trans-unit id="sendingVideo" xml:space="preserve"><source>Still uploading the video …</source><target>Video wird noch hochgeladen …</target></trans-unit>
             <trans-unit id="successTitle" xml:space="preserve"><source>Thank you!</source><target>Vielen Dank!</target></trans-unit>
             <trans-unit id="successMessage" xml:space="preserve"><source>Your feedback has been submitted.</source><target>Dein Feedback wurde übermittelt.</target></trans-unit>
             <trans-unit id="openTask" xml:space="preserve"><source>Open Asana task</source><target>Asana-Aufgabe öffnen</target></trans-unit>

@@ -3,3 +3,11 @@ CodeQ_AsanaFeedback_RateLimit:
   backend: Neos\Cache\Backend\FileBackend
   backendOptions:
     defaultLifetime: 3600
+
+# Deduplicates feedback submissions by their client generated id so a
+# retried (timed out) submission does not create a second Asana task.
+CodeQ_AsanaFeedback_Submissions:
+  frontend: Neos\Cache\Frontend\VariableFrontend
+  backend: Neos\Cache\Backend\FileBackend
+  backendOptions:
+    defaultLifetime: 86400

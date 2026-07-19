@@ -51,6 +51,12 @@ class FeedbackService
     protected $userContextService;
 
     /**
+     * @Flow\Inject
+     * @var SubmissionStore
+     */
+    protected $submissionStore;
+
+    /**
      * @Flow\Inject(name="Neos.Flow:SystemLogger")
      * @var LoggerInterface
      */
@@ -65,12 +71,23 @@ class FeedbackService
     /**
      * Creates the Asana task for one feedback submission.
      *
-     * @param array $submission ['description' => string, 'authorName' => ?string, 'assigneeKey' => ?string, 'pageUrl' => string, 'technicalContext' => array]
+     * @param array $submission ['submissionId' => ?string, 'description' => string, 'authorName' => ?string, 'assigneeKey' => ?string, 'pageUrl' => string, 'technicalContext' => array]
      * @return array{success: bool, taskUrl: ?string, warnings: array<string>}
      * @throws ValidationException|ConfigurationException|AsanaApiException
      */
     public function submit(array $submission, ?UploadedFileInterface $screenshot, ?UploadedFileInterface $video = null): array
     {
+        // a retried (timed out) submission carries the same id, so return the
+        // already created task instead of creating a duplicate
+        $submissionId = trim((string)($submission['submissionId'] ?? ''));
+        if ($submissionId !== '') {
+            $existingResult = $this->submissionStore->getResult($submissionId);
+            if ($existingResult !== null) {
+                $this->logger->info(sprintf('CodeQ.AsanaFeedback: Returning cached result for resubmitted feedback %s', $submissionId));
+                return $existingResult;
+            }
+        }
+
         $userContext = $this->userContextService->getCurrentUserContext();
         $limits = $this->settings['limits'] ?? [];
 
@@ -121,7 +138,12 @@ class FeedbackService
         }
 
         try {
-            return $this->createAsanaTask($title, $description, $authorName, $pageUrl, $assigneeGid, $submission['technicalContext'] ?? [], $screenshotFile, $videoFile);
+            $result = $this->createAsanaTask($title, $description, $authorName, $pageUrl, $assigneeGid, $submission['technicalContext'] ?? [], $screenshotFile, $videoFile);
+            if ($submissionId !== '') {
+                // remember the outcome so a retry with the same id is deduplicated
+                $this->submissionStore->storeResult($submissionId, $result);
+            }
+            return $result;
         } finally {
             // temporary files must disappear regardless of transfer success
             foreach ([$screenshotFile, $videoFile] as $temporaryFile) {

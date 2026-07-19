@@ -107,6 +107,13 @@
     background: rgba(0, 0, 0, 0.65);
     overflow-y: auto;
     padding: 24px 16px;
+    transition: opacity 240ms ease;
+}
+
+/* while uploading the modal shrinks away towards the bottom right corner */
+#codeq-asana-feedback-root .cqaf-overlay--hiding {
+    opacity: 0;
+    pointer-events: none;
 }
 
 #codeq-asana-feedback-root .cqaf-panel {
@@ -118,6 +125,12 @@
     border-radius: 2px !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     padding: 20px;
+    transition: transform 240ms ease;
+    transform-origin: bottom right;
+}
+
+#codeq-asana-feedback-root .cqaf-overlay--hiding .cqaf-panel {
+    transform: scale(0.85) translateY(12px);
 }
 
 #codeq-asana-feedback-root .cqaf-panel__header {
@@ -391,6 +404,86 @@
 
 #codeq-asana-feedback-root .cqaf-panel--result .cqaf-form__actions {
     justify-content: center;
+}
+
+#codeq-asana-feedback-root .cqaf-result__icon--small {
+    padding: 8px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+#codeq-asana-feedback-root .cqaf-result__icon--small .cqaf-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ---------- corner notice (uploading + success) ---------- */
+#codeq-asana-feedback-root .cqaf-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2147483005;
+    width: 320px;
+    max-width: calc(100vw - 40px);
+    padding: 16px 18px;
+    background: var(--cqaf-bg-panel);
+    border: 1px solid var(--cqaf-border);
+    border-radius: 2px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* starts just below its resting spot and fades/slides up into place */
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 260ms ease, transform 260ms ease;
+}
+
+#codeq-asana-feedback-root .cqaf-toast--visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#codeq-asana-feedback-root .cqaf-toast__uploading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+}
+
+#codeq-asana-feedback-root .cqaf-toast__uploading .cqaf-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--cqaf-primary);
+}
+
+#codeq-asana-feedback-root .cqaf-toast__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+/* message, optional warning and the task link stack in the text column and
+   stay left-aligned with each other next to the success icon */
+#codeq-asana-feedback-root .cqaf-toast__headline {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+#codeq-asana-feedback-root .cqaf-toast__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+/* respect users who prefer no motion: keep the states, drop the animation */
+@media (prefers-reduced-motion: reduce) {
+    #codeq-asana-feedback-root .cqaf-overlay,
+    #codeq-asana-feedback-root .cqaf-panel,
+    #codeq-asana-feedback-root .cqaf-toast {
+        transition: none;
+    }
 }
 
 /* ---------- annotator ---------- */

@@ -24,7 +24,7 @@ class WidgetConfigService
         'undo', 'redo', 'deleteAnnotation', 'continueButton', 'retakeScreenshot',
         'titleLabel', 'titlePlaceholder',
         'descriptionLabel', 'descriptionPlaceholder', 'authorLabel', 'authorPlaceholder',
-        'assigneeLabel', 'assigneeNone', 'submit', 'cancel', 'back', 'sending',
+        'assigneeLabel', 'assigneeNone', 'submit', 'cancel', 'back', 'sending', 'sendingVideo',
         'successTitle', 'successMessage', 'openTask', 'errorTitle', 'errorGeneric',
         'errorValidation', 'errorDescriptionRequired', 'errorRateLimit',
         'errorConfiguration', 'errorAttachment', 'errorScreenshot', 'errorForbidden',

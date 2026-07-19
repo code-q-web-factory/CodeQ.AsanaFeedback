@@ -25,7 +25,18 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         screencastMimeType: '',
         recordingHandle: null,
         contentCanvasUrl: '',
+        // stable per capture session so a retry after a timeout creates no
+        // duplicate Asana task (the server deduplicates by this id)
+        submissionId: null,
     };
+
+    // random id identifying one report; kept across retries, renewed per capture
+    function generateSubmissionId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'cqaf-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+    }
 
     // the root element is excluded from screenshots via the capture filter
     const root = h('div', { id: 'codeq-asana-feedback-root', dataset: { codeqFeedback: 'true' } });
@@ -40,6 +51,8 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
     }, [icon('feedback'), h('span', {}, [labels.buttonLabel])]);
 
     const overlay = h('div', { className: 'cqaf-overlay', hidden: true });
+    // non-blocking corner notice shown while uploading and for the success state
+    const toast = h('div', { className: 'cqaf-toast', role: 'status', hidden: true });
     let recordingStartedAt = 0;
     let recordingElapsedInterval = null;
     const recordingStopLabel = h('span', {}, [labels.stopRecording]);
@@ -54,7 +67,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             }
         },
     }, [icon('video'), recordingStopLabel]);
-    root.append(feedbackButton, overlay, recordingStopButton);
+    root.append(feedbackButton, overlay, recordingStopButton, toast);
 
     function showOverlay(...children) {
         overlay.hidden = false;
@@ -72,6 +85,84 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
     function revealOverlay() {
         overlay.hidden = false;
+    }
+
+    // shrinks the full screen modal away (towards the corner) while uploading
+    function concealOverlayAnimated() {
+        overlay.classList.add('cqaf-overlay--hiding');
+        window.setTimeout(() => {
+            overlay.hidden = true;
+        }, 240);
+    }
+
+    // brings the modal back full screen, e.g. after an upload error
+    function revealOverlayAnimated() {
+        overlay.hidden = false;
+        overlay.classList.add('cqaf-overlay--hiding');
+        // next frame so the browser animates from the hidden to the shown state
+        requestAnimationFrame(() => overlay.classList.remove('cqaf-overlay--hiding'));
+    }
+
+    // the corner notice covers the same spot as the floating button
+    function showToast(children, { assertive = false } = {}) {
+        replaceChildren(toast, ...children);
+        toast.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+        feedbackButton.hidden = true;
+        toast.hidden = false;
+        requestAnimationFrame(() => toast.classList.add('cqaf-toast--visible'));
+    }
+
+    function hideToast() {
+        toast.classList.remove('cqaf-toast--visible');
+        toast.hidden = true;
+        replaceChildren(toast);
+    }
+
+    function showUploadingToast(labelText) {
+        showToast([
+            h('div', { className: 'cqaf-toast__uploading' }, [
+                icon('spinner'),
+                h('span', {}, [labelText]),
+            ]),
+        ]);
+    }
+
+    // success is confirmed in the corner, mirroring the full screen result view
+    function showSuccessToast(payload) {
+        // message, warning and task link share the text column so they align
+        // with each other next to the success icon
+        const headlineChildren = [
+            h('p', { className: 'cqaf-result__message' }, [labels.successMessage]),
+        ];
+
+        if (payload && Array.isArray(payload.warnings) && payload.warnings.includes('videoUploadFailed')) {
+            headlineChildren.push(h('p', { className: 'cqaf-result__warning' }, [labels.videoUploadFailed]));
+        }
+
+        // the Asana link is only delivered to team members by the server
+        if (payload && payload.taskUrl) {
+            headlineChildren.push(h('a', {
+                className: 'cqaf-button cqaf-button--ghost cqaf-button--small cqaf-task-link',
+                href: payload.taskUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+            }, [icon('externalLink'), h('span', {}, [labels.openTask])]));
+        }
+
+        const children = [
+            h('div', { className: 'cqaf-toast__header' }, [
+                h('div', { className: 'cqaf-result__icon cqaf-result__icon--success cqaf-result__icon--small' }, [icon('check')]),
+                h('div', { className: 'cqaf-toast__headline' }, headlineChildren),
+            ]),
+            h('div', { className: 'cqaf-toast__actions' }, [
+                h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => reset() }, [labels.close]),
+                h('button', { type: 'button', className: 'cqaf-button cqaf-button--primary cqaf-button--small', onClick: () => { reset(); startCapture(); } }, [labels.newFeedback]),
+            ]),
+        ];
+
+        // the modal is no longer needed once the submission succeeded
+        hideOverlay();
+        showToast(children, { assertive: true });
     }
 
     function showRecordingStopButton() {
@@ -112,12 +203,17 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         state.screencastBlob = null;
         state.screencastMimeType = '';
         state.contentCanvasUrl = '';
+        state.submissionId = null;
+        hideToast();
+        overlay.classList.remove('cqaf-overlay--hiding');
         hideOverlay();
         feedbackButton.hidden = !floatingButton;
     }
 
     async function startCapture() {
         state.contentCanvasUrl = includeIframes ? getNeosContentCanvasUrl() : '';
+        // a fresh report gets a fresh id; retries of the same report reuse it
+        state.submissionId = generateSubmissionId();
         feedbackButton.disabled = true;
         feedbackButton.classList.add('cqaf-fab--busy');
         // rendering the page DOM can take a few seconds; the indicator lives
@@ -378,7 +474,15 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             state.submitting = true;
             errorMessage.hidden = true;
             submitButton.disabled = true;
-            replaceChildren(submitButton, icon('spinner'), document.createTextNode(' ' + labels.sending));
+            // uploading a screencast through the relay to Asana can take a
+            // while, so the button says so instead of a generic "Sending …"
+            const sendingLabel = state.screencastBlob ? labels.sendingVideo : labels.sending;
+            replaceChildren(submitButton, icon('spinner'), document.createTextNode(' ' + sendingLabel));
+
+            // the upload no longer blocks the page: the modal shrinks into a
+            // small corner notice while the (potentially slow) upload runs
+            concealOverlayAnimated();
+            showUploadingToast(sendingLabel);
 
             try {
                 const result = await submitFeedback({
@@ -387,13 +491,17 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                     authorName: authorField ? authorField.value : '',
                     assigneeKey: selectedAssignee.key,
                 });
-                showResult(true, null, result);
+                showSuccessToast(result);
             } catch (error) {
+                // on failure the modal comes back full screen so the user sees
+                // the error and can retry (the retry reuses the submission id)
+                hideToast();
                 state.submitting = false;
                 submitButton.disabled = false;
                 replaceChildren(submitButton, document.createTextNode(labels.submit));
                 errorMessage.textContent = mapErrorToLabel(error);
                 errorMessage.hidden = false;
+                revealOverlayAnimated();
             }
         });
 
@@ -408,6 +516,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         }
 
         const formData = new FormData();
+        formData.append('submissionId', state.submissionId || '');
         formData.append('title', fields.title || '');
         formData.append('description', fields.description);
         formData.append('authorName', fields.authorName || '');
