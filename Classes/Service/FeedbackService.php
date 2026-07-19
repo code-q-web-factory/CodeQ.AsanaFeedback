@@ -29,13 +29,13 @@ class FeedbackService
      */
     protected const TECHNICAL_CONTEXT_LABELS = [
         'browser' => 'Browser',
-        'operatingSystem' => 'Betriebssystem',
+        'operatingSystem' => 'Operating system',
         'viewport' => 'Viewport',
-        'screen' => 'Bildschirm',
-        'devicePixelRatio' => 'Device Pixel Ratio',
-        'language' => 'Sprache',
-        'contentCanvasUrl' => 'Content-Canvas-URL',
-        'userAgent' => 'User-Agent',
+        'screen' => 'Screen',
+        'devicePixelRatio' => 'Device pixel ratio',
+        'language' => 'Language',
+        'contentCanvasUrl' => 'Content canvas URL',
+        'userAgent' => 'User agent',
     ];
 
     /**
@@ -269,10 +269,13 @@ class FeedbackService
     {
         $createdAt = (new \DateTimeImmutable())->format('d.m.Y H:i:s T');
 
-        $notes = "Autor: {$authorName}\n";
+        // the description comes first so the task is readable at a glance;
+        // all metadata follows below the separator
+        $notes = $this->sanitizeMultiLine($description) . "\n";
+        $notes .= "\n---\n\n";
+        $notes .= "Author: {$authorName}\n";
         $notes .= "URL: {$pageUrl}\n";
-        $notes .= "Erstellt am: {$createdAt}\n";
-        $notes .= "\nBeschreibung:\n" . $this->sanitizeMultiLine($description) . "\n";
+        $notes .= "Created at: {$createdAt}\n";
 
         $contextLines = [];
         foreach (self::TECHNICAL_CONTEXT_LABELS as $key => $label) {
@@ -281,10 +284,10 @@ class FeedbackService
             }
         }
         if ($contextLines !== []) {
-            $notes .= "\nTechnischer Kontext:\n" . implode("\n", $contextLines) . "\n";
+            $notes .= "\nTechnical context:\n" . implode("\n", $contextLines) . "\n";
         }
 
-        $notes .= "\nErstellt über das CodeQ.AsanaFeedback Widget.";
+        $notes .= "\nCreated via the CodeQ.AsanaFeedback widget.";
 
         return $notes;
     }

@@ -160,9 +160,9 @@ async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeGid, 
     if (!task) throw new Error(`task with marker ${marker} not found in Todo section`);
     createdTaskGids.push(task.gid);
 
-    if (!(task.notes || '').includes(`Autor: ${expectedAuthor}`)) throw new Error(`author missing in notes: ${task.notes.slice(0, 200)}`);
+    if (!(task.notes || '').includes(`Author: ${expectedAuthor}`)) throw new Error(`author missing in notes: ${task.notes.slice(0, 200)}`);
     if (!(task.notes || '').includes('URL: http://basewebsite.ddev.site')) throw new Error('page URL missing in notes');
-    if (!(task.notes || '').includes('Erstellt am:')) throw new Error('timestamp missing in notes');
+    if (!(task.notes || '').includes('Created at:')) throw new Error('timestamp missing in notes');
     if (!(task.notes || '').includes('Browser:')) throw new Error('technical context missing in notes');
 
     if (expectedTaskName !== undefined) {

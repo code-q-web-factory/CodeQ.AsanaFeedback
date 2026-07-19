@@ -105,13 +105,15 @@ class FeedbackServiceTest extends TestCase
             ],
         ]);
 
-        self::assertStringContainsString('Autor: Jane Doe', $notes);
+        // the description leads, all metadata follows below the separator
+        self::assertStringStartsWith("A description\nwith a second line", $notes);
+        self::assertStringContainsString("\n---\n", $notes);
+        self::assertStringContainsString('Author: Jane Doe', $notes);
         self::assertStringContainsString('URL: https://example.com/de/page?query=1', $notes);
-        self::assertStringContainsString('Erstellt am:', $notes);
-        self::assertStringContainsString("A description\nwith a second line", $notes);
+        self::assertStringContainsString('Created at:', $notes);
         self::assertStringContainsString('Browser: Firefox 141', $notes);
-        self::assertStringContainsString('Content-Canvas-URL: https://example.com/de/content-page', $notes);
-        self::assertStringContainsString('User-Agent: Mozilla/5.0', $notes);
+        self::assertStringContainsString('Content canvas URL: https://example.com/de/content-page', $notes);
+        self::assertStringContainsString('User agent: Mozilla/5.0', $notes);
         self::assertStringNotContainsString('must not appear', $notes);
     }
 }
