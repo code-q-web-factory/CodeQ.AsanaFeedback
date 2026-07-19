@@ -40,9 +40,9 @@ class FeedbackService
 
     /**
      * @Flow\Inject
-     * @var AsanaClient
+     * @var FeedbackRelayClient
      */
-    protected $asanaClient;
+    protected $feedbackRelayClient;
 
     /**
      * @Flow\Inject
@@ -152,64 +152,34 @@ class FeedbackService
             throw new ConfigurationException('No Asana project GID is configured.', 1752130014);
         }
 
-        $sectionGid = (string)($this->settings['asanaSectionGid'] ?? '');
-        if ($sectionGid === '') {
-            $sectionGid = (string)$this->asanaClient->resolveSectionGidByName(
-                $projectGid,
-                array_map('strval', $this->settings['asanaSectionNames'] ?? [])
-            );
-            if ($sectionGid === '') {
-                throw new ConfigurationException(
-                    'None of the configured section names exists in the Asana project.',
-                    1752130015
-                );
-            }
-        }
-
-        $task = $this->asanaClient->createTask(
-            $projectGid,
-            $sectionGid,
-            $this->buildTaskName($title, $description),
-            $this->buildTaskNotes($description, $authorName, $pageUrl, $technicalContext),
-            $assigneeGid
+        // the relay service resolves the section, creates the task and
+        // attaches the files in one request; the Asana token stays there
+        $task = $this->feedbackRelayClient->createTask(
+            [
+                'projectGid' => $projectGid,
+                'sectionGid' => (string)($this->settings['asanaSectionGid'] ?? ''),
+                'sectionNames' => array_map('strval', $this->settings['asanaSectionNames'] ?? []),
+                'name' => $this->buildTaskName($title, $description),
+                'notes' => $this->buildTaskNotes($description, $authorName, $pageUrl, $technicalContext),
+                'assigneeGid' => $assigneeGid,
+            ],
+            $screenshotFile,
+            $videoFile
         );
 
         $this->logger->info(
-            sprintf('CodeQ.AsanaFeedback: Created Asana task %s (%s) for feedback by "%s" on %s', $task['gid'], $task['permalinkUrl'], $authorName, $pageUrl)
+            sprintf('CodeQ.AsanaFeedback: Created Asana task %s (%s) for feedback by "%s" on %s', $task['taskGid'], $task['taskUrl'], $authorName, $pageUrl)
         );
-
-        // the screenshot is a mandatory part of the report: without it the
-        // submission counts as failed even though the task already exists
-        try {
-            $this->asanaClient->uploadAttachment($task['gid'], $screenshotFile['path'], 'screenshot.' . $screenshotFile['extension'], $screenshotFile['mimeType']);
-        } catch (AsanaApiException $exception) {
+        if ($task['warnings'] !== []) {
             $this->logger->error(
-                sprintf('CodeQ.AsanaFeedback: Task %s was created but the screenshot upload failed: %s', $task['gid'], $exception->getMessage())
+                sprintf('CodeQ.AsanaFeedback: Task %s was created with warnings: %s', $task['taskGid'], implode(', ', $task['warnings']))
             );
-            throw new AsanaApiException(
-                'The task was created but the screenshot could not be attached.',
-                1752130016,
-                $exception
-            );
-        }
-
-        $warnings = [];
-        if ($videoFile !== null) {
-            try {
-                $this->asanaClient->uploadAttachment($task['gid'], $videoFile['path'], 'screencast.' . $videoFile['extension'], $videoFile['mimeType']);
-            } catch (AsanaApiException $exception) {
-                // a failed optional screencast should not invalidate the report
-                $this->logger->error(
-                    sprintf('CodeQ.AsanaFeedback: Task %s was created but the screencast upload failed: %s', $task['gid'], $exception->getMessage())
-                );
-                $warnings[] = 'videoUploadFailed';
-            }
         }
 
         return [
             'success' => true,
-            'taskUrl' => $task['permalinkUrl'] !== '' ? $task['permalinkUrl'] : null,
-            'warnings' => $warnings,
+            'taskUrl' => $task['taskUrl'] !== '' ? $task['taskUrl'] : null,
+            'warnings' => $task['warnings'],
         ];
     }
 

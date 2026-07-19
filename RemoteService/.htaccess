@@ -1,0 +1,19 @@
+# The configuration must never be served, even if PHP handling breaks
+<Files "config.php">
+    Require all denied
+</Files>
+<Files "config.example.php">
+    Require all denied
+</Files>
+
+# Apache strips the Authorization header from PHP by default
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+# Screencasts can be up to 100 MB plus a 10 MB screenshot; raise the PHP
+# limits accordingly (only works with mod_php - otherwise configure the
+# same values in the pool/php.ini)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 128M
+    php_value post_max_size 128M
+    php_value max_execution_time 300
+</IfModule>

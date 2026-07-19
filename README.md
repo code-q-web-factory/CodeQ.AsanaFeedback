@@ -37,7 +37,56 @@ for this use case.
 - Styled after the Neos CMS backend and hardened against site CSS
 - Rate limiting, server side MIME/size validation and cleanup of temp files
 
+## Architecture: the Asana feedback relay
+
+The Neos package never talks to Asana directly and never holds the Asana
+personal access token. Instead it posts every submission to a small
+standalone relay script (see [`RemoteService/`](RemoteService/)) that is
+deployed once on a central server, e.g. at
+`https://docs.codeq.at/asana-feedback/`:
+
+```
+Browser widget ──▶ Neos (CodeQ.AsanaFeedback) ──▶ relay (docs.codeq.at) ──▶ Asana API
+                   holds: shared secret           holds: Asana token
+```
+
+The Neos project authenticates against the relay with a shared secret
+(`ASANA_FEEDBACK_ACCESS_TOKEN`). The relay accepts exactly one operation —
+create one feedback task with its attachments — so a compromised website
+cannot do anything else with the Asana account (no reading tasks, no other
+projects beyond the optional allowlist, no deleting).
+
 ## Setup
+
+### 0. Deploy the relay service (once, centrally)
+
+The relay must be running before any website can submit feedback. Copy the
+contents of `RemoteService/` (`index.php`, `.htaccess`,
+`config.example.php`) into a folder on the central server, e.g.
+`docs.codeq.at/asana-feedback/`, then:
+
+1. Copy `config.example.php` to `config.php` (git-ignored, never committed)
+   and fill in:
+   - `asanaAccessToken`: the Personal Access Token of the dedicated Asana
+     integration user (Asana developer console). The integration user must
+     be a member of every target Asana project.
+   - `sharedSecret`: a strong random value, e.g. `openssl rand -hex 32`.
+     This is the value the websites use as `ASANA_FEEDBACK_ACCESS_TOKEN`.
+   - `allowedProjectGids` (optional): allowlist of project GIDs the relay
+     may create tasks in; empty allows every project of the integration user.
+2. Make sure `config.php` is not served: the shipped `.htaccess` denies it
+   on Apache; on nginx add an equivalent `location` block.
+3. The relay must be reachable via HTTPS only.
+4. Allow large uploads: screencasts can be up to 100 MB, so
+   `upload_max_filesize`/`post_max_size` need ~128M and
+   `max_execution_time` ~300s (the `.htaccess` sets this for mod_php,
+   otherwise configure it in the PHP pool).
+
+A quick smoke test — an unauthenticated request must return 401:
+
+```bash
+curl -i -X POST https://docs.codeq.at/asana-feedback/
+```
 
 ### 1. Require the package
 
@@ -52,22 +101,32 @@ Nothing else needs to be wired up manually: the Fusion integration
 the authentication request pattern and the Neos backend toolbar plugin are
 all registered by the package itself.
 
-### 2. Provide the Asana access token
+### 2. Provide the relay shared secret
 
-Create (or reuse) a dedicated Asana integration user, generate a Personal
-Access Token in the Asana developer console and provide it as the
-environment variable `ASANA_FEEDBACK_ACCESS_TOKEN` — never in versioned
-configuration. Locally with ddev, for example:
+Provide the relay's shared secret (the `sharedSecret` from the relay's
+`config.php`, **not** an Asana token) as the environment variable
+`ASANA_FEEDBACK_ACCESS_TOKEN` — never in versioned configuration. Locally
+with ddev, for example:
 
 ```yaml
 # .ddev/config.local.yaml (git-ignored)
 web_environment:
-  - ASANA_FEEDBACK_ACCESS_TOKEN=1/1234567890:abcdef...
+  - ASANA_FEEDBACK_ACCESS_TOKEN=3f9c2e...
 ```
 
 followed by `ddev restart`. On Proserver/Beach the variable is set through
-the deployment secret store. The integration user must be a member of the
-target Asana project.
+the deployment secret store.
+
+If the relay runs somewhere other than the default
+`https://docs.codeq.at/asana-feedback/`, point the package at it:
+
+```yaml
+# DistributionPackages/Vendor.Site/Configuration/Settings.AsanaFeedback.yaml
+CodeQ:
+  AsanaFeedback:
+    feedbackService:
+      endpoint: 'https://example.com/asana-feedback/'
+```
 
 ### 3. Configure the Asana project
 
@@ -134,7 +193,10 @@ CodeQ:
   AsanaFeedback:
     enableInFrontend: false
 
-    asana:
+    feedbackService:
+      # relay service that holds the actual Asana access token
+      endpoint: 'https://docs.codeq.at/asana-feedback/'
+      # shared secret to authenticate against the relay
       accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
 
     asanaProjectGid: ''
@@ -204,8 +266,15 @@ CodeQ:
 
 ## Security notes
 
-- All Asana communication happens exclusively server side; token, project,
+- The Asana personal access token only exists on the central relay server;
+  the websites merely hold a shared secret whose only capability is
+  creating one feedback task per request. A compromised website cannot
+  read, modify or delete anything in Asana.
+- All Asana communication happens exclusively server side; secret, project,
   section and assignee GIDs are never delivered to the browser
+- The relay re-validates everything independently: constant time secret
+  comparison, numeric GIDs, optional project allowlist and content sniffed
+  MIME types of the attachments
 - Submitted assignees are validated server side against the allowlist and
   the `visibleToClient` flag; project and section can never be chosen by
   the client
@@ -234,8 +303,10 @@ bin/phpunit --bootstrap Build/BuildEssentials/PhpUnit/UnitTestBootstrap.php \
     DistributionPackages/CodeQ.AsanaFeedback/Tests/Unit
 
 # end-to-end tests in Chromium, Firefox and WebKit incl. Asana verification
+# (ASANA_ACCESS_TOKEN is a real Asana PAT used to verify the created tasks,
+# independent of the relay shared secret the website itself uses)
 cd Tests/E2E && npm install playwright && npx playwright install
-ASANA_FEEDBACK_ACCESS_TOKEN=... node run-tests.mjs
+ASANA_ACCESS_TOKEN=... node run-tests.mjs
 ```
 
 ## Open source dependencies

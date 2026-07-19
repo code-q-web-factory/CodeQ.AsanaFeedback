@@ -1,8 +1,10 @@
 import { chromium, firefox, webkit } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL || 'http://basewebsite.ddev.site';
-const TOKEN = process.env.ASANA_FEEDBACK_ACCESS_TOKEN;
-if (!TOKEN) throw new Error('Set ASANA_FEEDBACK_ACCESS_TOKEN');
+// real Asana personal access token used to verify the created tasks; not
+// the relay shared secret the Neos project uses (ASANA_FEEDBACK_ACCESS_TOKEN)
+const TOKEN = process.env.ASANA_ACCESS_TOKEN;
+if (!TOKEN) throw new Error('Set ASANA_ACCESS_TOKEN to an Asana personal access token');
 const PROJECT_GID = '1216274953146548';
 const SECTION_GID = '1216274953146549'; // "Todo"
 const ROLAND_GID = '422230010221';

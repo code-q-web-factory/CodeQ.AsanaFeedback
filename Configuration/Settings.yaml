@@ -43,11 +43,14 @@ CodeQ:
     # Neos backend, independent of this flag.
     enableInFrontend: false
 
-    asana:
-      # Personal access token of the Asana integration user, provided via
+    # The Asana feedback relay service this package posts to. The relay is
+    # the only place that holds the real Asana access token; see
+    # RemoteService/ and the README for how to set it up.
+    feedbackService:
+      endpoint: 'https://docs.codeq.at/asana-feedback/'
+      # Shared secret to authenticate against the relay, provided via
       # environment so it is never part of versioned configuration.
       accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
-      apiBaseUri: 'https://app.asana.com/api/1.0'
 
     # The fixed Asana project every feedback task is created in.
     asanaProjectGid: ''
