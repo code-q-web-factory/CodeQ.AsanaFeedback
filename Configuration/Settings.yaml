@@ -90,9 +90,13 @@ CodeQ:
       - 'felixgradinaru'
       - 'fg'
       - 'daniel.schmelz'
+      - 'danielschmelz'
       - 'clara.borek'
+      - 'claraborek'
       - 'michael.koepl'
+      - 'michaelkoepl'
       - 'dion.holder'
+      - 'dionholder'
 
     # Selectable Asana assignees; keys are stable identifiers submitted by
     # the widget and validated server-side against this list. Entries with
