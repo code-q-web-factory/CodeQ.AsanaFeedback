@@ -38,8 +38,20 @@ class UploadGrantService
         $limits = $this->settings['limits'] ?? [];
 
         $endpoint = trim((string)($serviceSettings['endpoint'] ?? ''));
-        if (filter_var($endpoint, FILTER_VALIDATE_URL) === false || parse_url($endpoint, PHP_URL_SCHEME) !== 'https') {
+        if (
+            filter_var($endpoint, FILTER_VALIDATE_URL) === false
+            || parse_url($endpoint, PHP_URL_SCHEME) !== 'https'
+            || parse_url($endpoint, PHP_URL_FRAGMENT) !== null
+        ) {
             throw new ConfigurationException('A valid HTTPS feedback service endpoint is required.', 1752130040);
+        }
+        $endpointPath = (string)parse_url($endpoint, PHP_URL_PATH);
+        if ($endpointPath === '' || str_ends_with($endpointPath, '/')) {
+            // nginx does not resolve a directory index for OPTIONS requests,
+            // so CORS preflights must target the PHP entry point explicitly.
+            $entryPoint = $endpointPath === '' ? '/index.php' : 'index.php';
+            $suffixPosition = strcspn($endpoint, '?#');
+            $endpoint = substr($endpoint, 0, $suffixPosition) . $entryPoint . substr($endpoint, $suffixPosition);
         }
         $sharedSecret = (string)($serviceSettings['grantSecret'] ?? '');
         if (strlen($sharedSecret) < 32) {

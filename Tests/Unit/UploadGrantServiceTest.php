@@ -54,6 +54,85 @@ class UploadGrantServiceTest extends TestCase
         self::assertSame('1216274953146548', $claims['task']['projectGid']);
     }
 
+    /**
+     * @dataProvider relayEndpointProvider
+     */
+    public function testBuildsACorsCompatibleRelayUrl(
+        string $endpoint,
+        string $expectedPath,
+        ?string $expectedTenant
+    ): void {
+        $service = new UploadGrantService();
+        $property = new \ReflectionProperty(UploadGrantService::class, 'settings');
+        $property->setAccessible(true);
+        $property->setValue($service, [
+            'feedbackService' => [
+                'endpoint' => $endpoint,
+                'grantSecret' => str_repeat('s', 64),
+            ],
+            'asanaProjectGid' => '1216274953146548',
+        ]);
+
+        $grant = $service->createGrant([
+            'submissionId' => '70ba5883-9047-4e4f-8c47-043141190832',
+            'includeTaskUrl' => false,
+            'taskFingerprint' => str_repeat('a', 64),
+            'task' => [
+                'projectGid' => '1216274953146548',
+                'name' => 'Website-Feedback: Broken navigation',
+            ],
+        ], 'https://www.ilf.com', 1_800_000_000);
+
+        self::assertSame($expectedPath, parse_url($grant['uploadUrl'], PHP_URL_PATH));
+        parse_str((string)parse_url($grant['uploadUrl'], PHP_URL_QUERY), $query);
+        self::assertSame($expectedTenant, $query['tenant'] ?? null);
+        self::assertSame('upload', $query['action']);
+        self::assertNotSame('', $query['site']);
+        self::assertNotSame('', $query['cors']);
+    }
+
+    public static function relayEndpointProvider(): array
+    {
+        return [
+            'directory endpoint' => [
+                'https://feedback.example/asana-feedback/',
+                '/asana-feedback/index.php',
+                null,
+            ],
+            'directory endpoint with query' => [
+                'https://feedback.example/asana-feedback/?tenant=codeq',
+                '/asana-feedback/index.php',
+                'codeq',
+            ],
+            'explicit entry point with query' => [
+                'https://feedback.example/asana-feedback/index.php?tenant=codeq',
+                '/asana-feedback/index.php',
+                'codeq',
+            ],
+            'root endpoint' => [
+                'https://feedback.example',
+                '/index.php',
+                null,
+            ],
+        ];
+    }
+
+    public function testRejectsARelayEndpointWithAFragment(): void
+    {
+        $service = new UploadGrantService();
+        $property = new \ReflectionProperty(UploadGrantService::class, 'settings');
+        $property->setAccessible(true);
+        $property->setValue($service, [
+            'feedbackService' => [
+                'endpoint' => 'https://feedback.example/asana-feedback/#relay',
+                'grantSecret' => str_repeat('s', 64),
+            ],
+        ]);
+
+        $this->expectException(\CodeQ\AsanaFeedback\Exception\ConfigurationException::class);
+        $service->createGrant([], 'https://www.ilf.com');
+    }
+
     public function testRejectsAnUnencryptedRelayEndpoint(): void
     {
         $service = new UploadGrantService();
