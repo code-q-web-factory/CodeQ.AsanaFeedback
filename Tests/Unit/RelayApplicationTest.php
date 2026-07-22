@@ -225,6 +225,41 @@ class RelayApplicationTest extends TestCase
         self::assertSame(2, $asanaClient->uploadAttachmentCalls);
     }
 
+    public function testVideoOnlyFeedbackCreatesOneTaskWithOneAttachment(): void
+    {
+        $application = $this->createApplication(
+            $asanaClient,
+            static fn(string $path): string => 'video/webm'
+        );
+        $videoPath = __DIR__ . '/../../Resources/Public/Images/Team/felix.jpg';
+        $request = $this->createUploadRequest([
+            'video' => [
+                'error' => UPLOAD_ERR_OK,
+                'tmp_name' => $videoPath,
+                'size' => filesize($videoPath),
+            ],
+        ]);
+
+        $response = $application->handle($request);
+
+        self::assertSame(200, $response->statusCode);
+        self::assertSame([], $response->payload['warnings']);
+        self::assertSame(1, $asanaClient->createTaskCalls);
+        self::assertSame(1, $asanaClient->uploadAttachmentCalls);
+    }
+
+    public function testFeedbackWithoutMediaIsRejectedBeforeTaskCreation(): void
+    {
+        $application = $this->createApplication($asanaClient);
+
+        $response = $application->handle($this->createUploadRequest([]));
+
+        self::assertSame(400, $response->statusCode);
+        self::assertSame('validation', $response->payload['errorCode']);
+        self::assertSame(0, $asanaClient->createTaskCalls);
+        self::assertSame(0, $asanaClient->uploadAttachmentCalls);
+    }
+
     public function testFailedOptionalVideoCanBeRetriedWithoutCreatingAnotherTask(): void
     {
         $asanaClient = new class implements AsanaClientInterface {
@@ -279,6 +314,113 @@ class RelayApplicationTest extends TestCase
         self::assertSame($second->payload, $third->payload);
         self::assertSame(1, $asanaClient->createTaskCalls);
         self::assertSame(3, $asanaClient->uploadAttachmentCalls);
+    }
+
+    public function testFailedVideoOnlyAttachmentIsRetryableWithoutCreatingAnotherTask(): void
+    {
+        $asanaClient = new class implements AsanaClientInterface {
+            public int $createTaskCalls = 0;
+            public int $uploadAttachmentCalls = 0;
+
+            public function resolveSection(string $projectGid, string $sectionGid, array $sectionNames): string
+            {
+                return $sectionGid;
+            }
+
+            public function createTask(array $task, string $sectionGid): array
+            {
+                $this->createTaskCalls++;
+                return ['taskGid' => '1', 'taskUrl' => 'https://app.asana.com/0/1/1'];
+            }
+
+            public function uploadAttachment(string $taskGid, array $file, string $fileName): void
+            {
+                $this->uploadAttachmentCalls++;
+                if ($this->uploadAttachmentCalls === 1) {
+                    throw new \RuntimeException('Temporary video failure');
+                }
+            }
+        };
+        $application = new RelayApplication(
+            $this->baseConfig(),
+            $asanaClient,
+            static fn(): int => 1_800_000_000,
+            static fn(string $path): bool => is_file($path),
+            static fn(string $path): string => 'video/webm'
+        );
+        $videoPath = __DIR__ . '/../../Resources/Public/Images/Team/felix.jpg';
+        $files = [
+            'video' => [
+                'error' => UPLOAD_ERR_OK,
+                'tmp_name' => $videoPath,
+                'size' => filesize($videoPath),
+            ],
+        ];
+
+        $first = $application->handle($this->createUploadRequest($files));
+        $second = $application->handle($this->createUploadRequest($files));
+        $third = $application->handle($this->createUploadRequest($files));
+
+        self::assertSame(502, $first->statusCode);
+        self::assertSame('attachmentFailed', $first->payload['errorCode']);
+        self::assertSame(200, $second->statusCode);
+        self::assertSame([], $second->payload['warnings']);
+        self::assertSame($second->payload, $third->payload);
+        self::assertSame(1, $asanaClient->createTaskCalls);
+        self::assertSame(2, $asanaClient->uploadAttachmentCalls);
+    }
+
+    public function testRetryCannotChangeTheExpectedAttachmentTypes(): void
+    {
+        $asanaClient = new class implements AsanaClientInterface {
+            public int $createTaskCalls = 0;
+            public int $uploadAttachmentCalls = 0;
+
+            public function resolveSection(string $projectGid, string $sectionGid, array $sectionNames): string
+            {
+                return $sectionGid;
+            }
+
+            public function createTask(array $task, string $sectionGid): array
+            {
+                $this->createTaskCalls++;
+                return ['taskGid' => '1', 'taskUrl' => 'https://app.asana.com/0/1/1'];
+            }
+
+            public function uploadAttachment(string $taskGid, array $file, string $fileName): void
+            {
+                $this->uploadAttachmentCalls++;
+                if ($this->uploadAttachmentCalls === 1) {
+                    throw new \RuntimeException('Temporary video failure');
+                }
+            }
+        };
+        $application = new RelayApplication(
+            $this->baseConfig(),
+            $asanaClient,
+            static fn(): int => 1_800_000_000,
+            static fn(string $path): bool => is_file($path),
+            static fn(string $path): string => str_ends_with($path, 'felix.jpg') ? 'video/webm' : 'image/jpeg'
+        );
+        $videoPath = __DIR__ . '/../../Resources/Public/Images/Team/felix.jpg';
+        $screenshotPath = __DIR__ . '/../../Resources/Public/Images/Team/roland.jpg';
+        $videoFiles = [
+            'video' => ['error' => UPLOAD_ERR_OK, 'tmp_name' => $videoPath, 'size' => filesize($videoPath)],
+        ];
+        $screenshotFiles = [
+            'screenshot' => ['error' => UPLOAD_ERR_OK, 'tmp_name' => $screenshotPath, 'size' => filesize($screenshotPath)],
+        ];
+
+        $failedVideo = $application->handle($this->createUploadRequest($videoFiles));
+        $changedRetry = $application->handle($this->createUploadRequest($screenshotFiles));
+        $matchingRetry = $application->handle($this->createUploadRequest($videoFiles));
+
+        self::assertSame(502, $failedVideo->statusCode);
+        self::assertSame(409, $changedRetry->statusCode);
+        self::assertSame('idempotencyConflict', $changedRetry->payload['errorCode']);
+        self::assertSame(200, $matchingRetry->statusCode);
+        self::assertSame(1, $asanaClient->createTaskCalls);
+        self::assertSame(2, $asanaClient->uploadAttachmentCalls);
     }
 
     public function testDirectUploadsUseTheRelayRateLimitPerSiteAndClientIp(): void

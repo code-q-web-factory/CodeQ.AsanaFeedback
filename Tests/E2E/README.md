@@ -1,12 +1,15 @@
 # End-to-end tests
 
-Full feedback flow (capture, annotate with every tool, undo/redo, submit)
-in Chromium, Firefox and WebKit, verified against the real Asana API
+Full feedback flows (screenshot capture and annotation or video-only
+screencast submission) in Chromium, Firefox and WebKit, verified against the real Asana API
 (section placement, notes content, attachment, assignee, task link
 visibility). These tests create real Asana tasks and deliberately do not
 delete them; use only a dedicated test project and archive them manually.
-The Chromium anonymous scenario records a short synthetic canvas/audio stream
-through the real browser `MediaRecorder` and verifies two Asana attachments.
+The Chromium anonymous scenario starts a short synthetic canvas/audio stream
+from the annotation dialog through the real browser `MediaRecorder`, verifies
+that no screenshot is uploaded and checks the single Asana video attachment.
+The Chromium admin scenario keeps the annotated screenshot and records an
+additional screencast to cover the existing two-attachment flow.
 
 ```bash
 npm install playwright && npx playwright install chromium firefox webkit

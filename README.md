@@ -3,12 +3,11 @@
 # WIP This is currently tailored to the use cases for Code Q, feel free to fork your own version of add PRs
 
 A reusable Neos CMS package that adds a visual feedback widget to the rendered
-website. Visitors capture a screenshot of the current page, annotate it
-(freehand, rectangle, arrow, text, undo/redo, delete), give the report a
-title and description — and every successful submission creates one task in a
-fixed Asana project, including the annotated screenshot as attachment, the
-page URL, the author and technical browser context. It replaces Marker.io
-for this use case.
+website. Visitors annotate a screenshot of the current page or record a
+screencast, give the report a title and description — and every successful
+submission creates one task in a fixed Asana project, including the selected
+media attachment, page URL, author and technical browser context. It replaces
+Marker.io for this use case.
 
 ## Features
 
@@ -31,8 +30,8 @@ for this use case.
   switcher) for all logged-in users; its screenshot captures the full
   backend including the content canvas and inspector, and its technical
   context includes the live content-canvas URL
-- Optional screencast recording (Screen Capture API, https only), attached
-  to the same task
+- Screencast recording (Screen Capture API, https only), either instead of a
+  screenshot or as an additional attachment on the same task
 - Screenshots encoded as WebP at quality `0.8` (JPEG/PNG fallback) and
   screencasts capped at 1280×720, 20 FPS preferred/24 FPS maximum,
   2 Mbit/s video, 96 kbit/s audio and 90 seconds
@@ -51,8 +50,8 @@ The control plane and binary data plane are deliberately separate:
 Browser ── JSON metadata ──▶ Neos /prepare
 Browser ◀─ opaque upload grant + signed CORS policy ── Neos
 
-Browser ── grant/WebP/WebM file parts in FormData ──▶ central relay ──▶ Asana API
-                                                    task first, attachment second
+Browser ── grant + WebP and/or WebM in FormData ──▶ central relay ──▶ Asana API
+                                                  task first, attachment second
 ```
 
 Neos authenticates the current user, validates metadata, resolves the
@@ -133,8 +132,8 @@ complete contents of `RemoteService/` into a folder on the central server, e.g.
    limit_req zone=feedback_uploads burst=2 nodelay;
    ```
 
-   The widget sends only file parts (grant, screenshot and optional video),
-   so PHP spools them to upload temp files. If an edge WAF is available,
+   The widget sends only file parts (grant plus at least one screenshot or
+   video), so PHP spools them to upload temp files. If an edge WAF is available,
    reject unexpected regular multipart fields and cap each such field at
    512 KB; this prevents malicious form fields from consuming PHP memory
    before application code runs.
@@ -416,9 +415,10 @@ available. At the configured bitrates a full 90-second screencast is about
   crash window between Asana accepting task creation and the relay persisting
   that task ID. The current Asana API call has no idempotency primitive that
   can close this window.
-- A failed screenshot stays retryable on the same task. A failed optional
-  video returns a warning and remains retryable if the browser retries the
-  same submission after a lost response; there is no background retry worker.
+- A failed required media attachment stays retryable on the same task. When a
+  screenshot was attached successfully, a failed additional video returns a
+  warning and remains retryable if the browser retries the same submission
+  after a lost response; there is no background retry worker.
 
 ## Feasibility of true browser-to-Asana streaming
 

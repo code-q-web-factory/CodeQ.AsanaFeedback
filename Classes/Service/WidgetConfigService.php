@@ -26,7 +26,7 @@ class WidgetConfigService
         'descriptionLabel', 'descriptionPlaceholder', 'authorLabel', 'authorPlaceholder',
         'assigneeLabel', 'assigneeNone', 'submit', 'cancel', 'back', 'sending', 'sendingVideo',
         'successTitle', 'successMessage', 'openTask', 'errorTitle', 'errorGeneric',
-        'errorValidation', 'errorDescriptionRequired', 'errorRateLimit',
+        'errorValidation', 'errorDescriptionRequired', 'errorMediaRequired', 'errorRateLimit',
         'errorConfiguration', 'errorAttachment', 'errorScreenshot', 'errorForbidden', 'fileTooLarge',
         'newFeedback', 'close', 'screenshotPreviewAlt', 'editAnnotations',
         'recordScreencast', 'recording', 'stopRecording', 'screencastNotSupported',

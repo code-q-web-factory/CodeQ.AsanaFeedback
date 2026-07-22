@@ -236,6 +236,21 @@
     width: 100%;
 }
 
+#codeq-asana-feedback-root .cqaf-form__media-only {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--cqaf-border);
+    background: var(--cqaf-bg-input);
+}
+
+#codeq-asana-feedback-root .cqaf-form__media-only .cqaf-screencast {
+    justify-content: flex-start;
+    margin-left: 0;
+}
+
 #codeq-asana-feedback-root .cqaf-field {
     margin-bottom: 14px;
 }
@@ -522,6 +537,13 @@
     gap: 8px;
     margin-left: auto;
     flex-wrap: wrap;
+}
+
+#codeq-asana-feedback-root .cqaf-annotator__error {
+    margin: 0;
+    padding: 8px 16px;
+    background: var(--cqaf-bg);
+    border-bottom: 1px solid var(--cqaf-border);
 }
 
 #codeq-asana-feedback-root .cqaf-annotator__canvas {

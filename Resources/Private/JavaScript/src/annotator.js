@@ -13,7 +13,7 @@ export class Annotator {
     /**
      * @param {HTMLCanvasElement} screenshotCanvas device-pixel sized screenshot
      * @param {object} labels translated UI labels
-     * @param {{onContinue: Function, onRetake: Function, onCancel: Function}} callbacks
+     * @param {{onContinue: Function, onRetake: Function, onCancel: Function, onRecordScreencast?: Function}} callbacks
      */
     constructor(screenshotCanvas, labels, callbacks) {
         this.screenshotCanvas = screenshotCanvas;
@@ -81,12 +81,25 @@ export class Annotator {
         this.redoButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.redo, 'aria-label': this.labels.redo, dataset: { action: 'redo' }, onClick: () => this.redo() }, [icon('redo')]);
         this.deleteButton = h('button', { type: 'button', className: 'cqaf-tool-button', title: this.labels.deleteAnnotation, 'aria-label': this.labels.deleteAnnotation, dataset: { action: 'delete' }, onClick: () => this.deleteSelection() }, [icon('trash')]);
         toolbarLeft.append(this.undoButton, this.redoButton, this.deleteButton);
+        this.errorMessage = h('p', { className: 'cqaf-form-error cqaf-annotator__error', role: 'alert', hidden: true });
 
-        const toolbarRight = h('div', { className: 'cqaf-annotator__actions' }, [
+        const actionButtons = [
             h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', dataset: { action: 'cancel' }, onClick: () => this.callbacks.onCancel() }, [this.labels.cancel]),
             h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost', dataset: { action: 'retake' }, onClick: () => this.callbacks.onRetake() }, [this.labels.retakeScreenshot]),
-            h('button', { type: 'button', className: 'cqaf-button cqaf-button--primary', dataset: { action: 'continue' }, onClick: () => this.finish() }, [this.labels.continueButton]),
-        ]);
+        ];
+        if (typeof this.callbacks.onRecordScreencast === 'function') {
+            actionButtons.push(h('button', {
+                type: 'button',
+                className: 'cqaf-button cqaf-button--ghost',
+                dataset: { action: 'record-screencast' },
+                onClick: () => {
+                    this.errorMessage.hidden = true;
+                    this.callbacks.onRecordScreencast();
+                },
+            }, [icon('video'), h('span', {}, [this.labels.recordScreencast])]));
+        }
+        actionButtons.push(h('button', { type: 'button', className: 'cqaf-button cqaf-button--primary', dataset: { action: 'continue' }, onClick: () => this.finish() }, [this.labels.continueButton]));
+        const toolbarRight = h('div', { className: 'cqaf-annotator__actions' }, actionButtons);
 
         this.canvasWrapper = h('div', { className: 'cqaf-annotator__canvas' });
 
@@ -96,8 +109,14 @@ export class Annotator {
                 toolbarLeft,
                 toolbarRight,
             ]),
+            this.errorMessage,
             this.canvasWrapper,
         ]);
+    }
+
+    showError(message) {
+        this.errorMessage.textContent = message;
+        this.errorMessage.hidden = false;
     }
 
     async mount(container) {

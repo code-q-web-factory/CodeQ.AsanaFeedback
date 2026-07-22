@@ -191,10 +191,58 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         recordingStopButton.hidden = true;
     }
 
+    async function beginScreencast({ onRecorded, onError = () => {} }) {
+        let recordingHandle;
+        try {
+            recordingHandle = await startScreencast({
+                onStreamSelected: () => concealOverlay(),
+                media: config.media && config.media.video,
+            });
+        } catch (error) {
+            onError(error);
+            revealOverlay();
+            return;
+        }
+
+        state.recordingHandle = recordingHandle;
+        showRecordingStopButton();
+        recordingHandle.blobPromise.then((blob) => {
+            if (state.recordingHandle !== recordingHandle) {
+                return;
+            }
+
+            const mimeType = recordingHandle.mimeType;
+            state.recordingHandle = null;
+            hideRecordingStopButton();
+            if (blob && blob.size > 0 && blob.size <= maximumFileBytes) {
+                state.screencastBlob = blob;
+                state.screencastMimeType = blob.type || mimeType;
+                onRecorded();
+                return;
+            }
+
+            state.screencastBlob = null;
+            const error = new Error('The screencast could not be used.');
+            error.errorCode = blob && blob.size > maximumFileBytes ? 'fileTooLarge' : 'validation';
+            onError(error);
+            revealOverlay();
+        });
+    }
+
     function destroyAnnotator() {
         if (state.annotator) {
             state.annotator.destroy();
             state.annotator = null;
+        }
+    }
+
+    function discardScreenshot() {
+        state.annotatedCanvas = null;
+        state.screenshotCanvas = null;
+        state.optimizedScreenshot = null;
+        if (state.previewObjectUrl) {
+            URL.revokeObjectURL(state.previewObjectUrl);
+            state.previewObjectUrl = '';
         }
     }
 
@@ -206,13 +254,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         if (recordingHandle) {
             recordingHandle.stop();
         }
-        state.annotatedCanvas = null;
-        state.screenshotCanvas = null;
-        state.optimizedScreenshot = null;
-        if (state.previewObjectUrl) {
-            URL.revokeObjectURL(state.previewObjectUrl);
-            state.previewObjectUrl = '';
-        }
+        discardScreenshot();
         state.submitting = false;
         state.screencastBlob = null;
         state.screencastMimeType = '';
@@ -265,31 +307,55 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 reset();
                 startCapture();
             },
+            ...(isScreencastSupported() ? {
+                onRecordScreencast: () => beginScreencast({
+                    onRecorded: () => {
+                        destroyAnnotator();
+                        discardScreenshot();
+                        showForm();
+                    },
+                    onError: (error) => {
+                        let message = null;
+                        if (error && error.code === 'audioUnavailable') {
+                            message = labels.screencastAudioRequired;
+                        } else if (error && error.errorCode === 'fileTooLarge') {
+                            message = labels.screencastTooLarge;
+                        } else if (error && error.errorCode === 'validation') {
+                            message = labels.errorValidation;
+                        }
+                        if (message && state.annotator) {
+                            state.annotator.showError(message);
+                        }
+                    },
+                }),
+            } : {}),
             onCancel: () => reset(),
         });
         state.annotator.mount(overlay);
     }
 
     async function showForm() {
-        try {
-            state.optimizedScreenshot = await createOptimizedScreenshot(
-                state.annotatedCanvas,
-                config.media && config.media.screenshot
-            );
-            assertFileSize(state.optimizedScreenshot.blob, maximumScreenshotBytes);
-        } catch (error) {
-            showResult(false, mapErrorToLabel(error), null);
-            return;
+        if (state.annotatedCanvas) {
+            try {
+                state.optimizedScreenshot = await createOptimizedScreenshot(
+                    state.annotatedCanvas,
+                    config.media && config.media.screenshot
+                );
+                assertFileSize(state.optimizedScreenshot.blob, maximumScreenshotBytes);
+            } catch (error) {
+                showResult(false, mapErrorToLabel(error), null);
+                return;
+            }
+            if (state.previewObjectUrl) {
+                URL.revokeObjectURL(state.previewObjectUrl);
+            }
+            state.previewObjectUrl = URL.createObjectURL(state.optimizedScreenshot.blob);
         }
-        if (state.previewObjectUrl) {
-            URL.revokeObjectURL(state.previewObjectUrl);
-        }
-        state.previewObjectUrl = URL.createObjectURL(state.optimizedScreenshot.blob);
-        const previewImage = h('img', {
+        const previewImage = state.optimizedScreenshot ? h('img', {
             className: 'cqaf-form__preview',
             src: state.previewObjectUrl,
             alt: labels.screenshotPreviewAlt,
-        });
+        }) : null;
 
         // every user may name the Asana task; without a title the task is
         // named after the description
@@ -392,6 +458,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                             onClick: () => {
                                 state.screencastBlob = null;
                                 renderScreencastState();
+                                if (!state.optimizedScreenshot) {
+                                    errorMessage.textContent = labels.errorMediaRequired;
+                                    errorMessage.hidden = false;
+                                }
                             },
                         }, [labels.removeScreencast]));
                 } else {
@@ -399,47 +469,24 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                         type: 'button',
                         className: 'cqaf-button cqaf-button--ghost cqaf-button--small',
                         dataset: { action: 'record-screencast' },
-                        onClick: async () => {
-                            let recordingHandle;
-                            try {
-                                recordingHandle = await startScreencast({
-                                    onStreamSelected: () => concealOverlay(),
-                                    media: config.media && config.media.video,
-                                });
-                            } catch (error) {
-                                // the user cancelled the picker or the browser denied access
+                        onClick: () => beginScreencast({
+                            onRecorded: () => {
+                                errorMessage.hidden = true;
+                                renderScreencastState();
+                                revealOverlay();
+                            },
+                            onError: (error) => {
                                 if (error && error.code === 'audioUnavailable') {
                                     errorMessage.textContent = labels.screencastAudioRequired;
                                     errorMessage.hidden = false;
+                                } else if (error && error.errorCode === 'fileTooLarge') {
+                                    errorMessage.textContent = labels.screencastTooLarge;
+                                    errorMessage.hidden = false;
                                 }
-                                revealOverlay();
-                                return;
-                            }
-                            state.recordingHandle = recordingHandle;
-                            showRecordingStopButton();
-                            recordingHandle.blobPromise.then((blob) => finishRecording(blob, recordingHandle));
-                        },
+                            },
+                        }),
                     }, [icon('video'), h('span', {}, [labels.recordScreencast])]));
                 }
-            };
-
-            const finishRecording = (blob, recordingHandle) => {
-                if (state.recordingHandle !== recordingHandle) {
-                    return;
-                }
-                const mimeType = recordingHandle.mimeType;
-                state.recordingHandle = null;
-                hideRecordingStopButton();
-                if (blob && blob.size > 0 && blob.size <= maximumFileBytes) {
-                    state.screencastBlob = blob;
-                    state.screencastMimeType = blob.type || mimeType;
-                } else if (blob && blob.size > maximumFileBytes) {
-                    state.screencastBlob = null;
-                    errorMessage.textContent = labels.screencastTooLarge;
-                    errorMessage.hidden = false;
-                }
-                renderScreencastState();
-                revealOverlay();
             };
 
             renderScreencastState();
@@ -447,19 +494,22 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
         const submitButton = h('button', { type: 'submit', className: 'cqaf-button cqaf-button--primary' }, [labels.submit]);
         const errorMessage = h('p', { className: 'cqaf-form-error', role: 'alert', hidden: true });
+        const mediaSection = previewImage
+            ? h('div', { className: 'cqaf-form__preview-wrap' }, [
+                previewImage,
+                h('div', { className: 'cqaf-form__preview-actions' }, [
+                    h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => openAnnotator() }, [labels.editAnnotations]),
+                    screencastContainer,
+                ]),
+            ])
+            : h('div', { className: 'cqaf-form__media-only' }, [screencastContainer]);
 
         const form = h('form', { className: 'cqaf-form', novalidate: true }, [
             h('div', { className: 'cqaf-panel__header' }, [
                 h('h2', { className: 'cqaf-panel__title' }, [labels.panelTitle]),
                 h('button', { type: 'button', className: 'cqaf-icon-button', 'aria-label': labels.close, onClick: () => reset() }, [icon('close')]),
             ]),
-            h('div', { className: 'cqaf-form__preview-wrap' }, [
-                previewImage,
-                h('div', { className: 'cqaf-form__preview-actions' }, [
-                    h('button', { type: 'button', className: 'cqaf-button cqaf-button--ghost cqaf-button--small', onClick: () => openAnnotator() }, [labels.editAnnotations]),
-                    screencastContainer,
-                ]),
-            ]),
+            mediaSection,
             titleRow,
             h('div', { className: 'cqaf-field' }, [
                 h('label', { className: 'cqaf-label', for: 'cqaf-description' }, [labels.descriptionLabel]),
@@ -505,6 +555,12 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 }
                 state.recordingHandle = null;
                 hideRecordingStopButton();
+            }
+
+            if (!state.optimizedScreenshot && !state.screencastBlob) {
+                errorMessage.textContent = labels.errorMediaRequired;
+                errorMessage.hidden = false;
+                return;
             }
 
             state.submitting = true;

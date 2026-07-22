@@ -98,3 +98,36 @@ test('submits screenshot-only feedback without adding an empty video part', asyn
     assert.equal(calls[1].options.body.get('screenshot').type, 'image/webp');
     assert.equal(calls[1].options.body.has('video'), false);
 });
+
+test('submits video-only feedback without adding an empty screenshot part', async () => {
+    const calls = [];
+    const fetchImpl = async (url, options) => {
+        calls.push({ url, options });
+        return calls.length === 1
+            ? {
+                ok: true,
+                async json() {
+                    return {
+                        success: true,
+                        uploadUrl: 'https://feedback.example/upload?action=upload&cors=policy',
+                        uploadToken: 'opaque-upload-token',
+                        idempotencyKey: 'submission-9012',
+                    };
+                },
+            }
+            : { ok: true, async json() { return { success: true, warnings: [] }; } };
+    };
+
+    await submitFeedbackDirect({
+        prepareUrl: '/codeq-asana-feedback/prepare',
+        submission: { submissionId: 'submission-9012', description: 'Animation is broken' },
+        video: {
+            blob: new Blob(['webm-video'], { type: 'video/webm' }),
+            fileName: 'screencast.webm',
+        },
+        fetchImpl,
+    });
+
+    assert.equal(calls[1].options.body.has('screenshot'), false);
+    assert.equal(calls[1].options.body.get('video').type, 'video/webm');
+});

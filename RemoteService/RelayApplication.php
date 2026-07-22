@@ -333,15 +333,19 @@ final class RelayApplication
             return $rateLimitResponse;
         }
         $limits = is_array($grant['limits'] ?? null) ? $grant['limits'] : [];
-        $screenshotResult = $this->validateUpload(
-            $request->files['screenshot'] ?? [],
-            'screenshot',
-            min(self::MAXIMUM_FILE_BYTES, (int)($limits['screenshotBytes'] ?? self::MAXIMUM_FILE_BYTES)),
-            self::SCREENSHOT_MIME_TYPES,
-            $corsHeaders
-        );
-        if ($screenshotResult instanceof RelayResponse) {
-            return $screenshotResult;
+        $screenshotFile = null;
+        if (isset($request->files['screenshot']) && ($request->files['screenshot']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $screenshotResult = $this->validateUpload(
+                $request->files['screenshot'],
+                'screenshot',
+                min(self::MAXIMUM_FILE_BYTES, (int)($limits['screenshotBytes'] ?? self::MAXIMUM_FILE_BYTES)),
+                self::SCREENSHOT_MIME_TYPES,
+                $corsHeaders
+            );
+            if ($screenshotResult instanceof RelayResponse) {
+                return $screenshotResult;
+            }
+            $screenshotFile = $screenshotResult;
         }
         $videoFile = null;
         if (isset($request->files['video']) && ($request->files['video']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
@@ -357,6 +361,13 @@ final class RelayApplication
             }
             $videoFile = $videoResult;
         }
+        if ($screenshotFile === null && $videoFile === null) {
+            return $this->error(400, 'validation', 'A screenshot or screencast is required.', $corsHeaders);
+        }
+        $attachmentTypes = [
+            'screenshot' => $screenshotFile !== null,
+            'video' => $videoFile !== null,
+        ];
 
         $task = $this->validateTask((array)($grant['task'] ?? []), $corsHeaders);
         if ($task instanceof RelayResponse) {
@@ -371,6 +382,13 @@ final class RelayApplication
             $state = $this->loadSubmissionState($lock['statePath']);
             if ($state !== null && ($state['taskFingerprint'] ?? '') !== $taskFingerprint) {
                 return $this->error(409, 'idempotencyConflict', 'The idempotency key was already used for different feedback.', $corsHeaders);
+            }
+            if (
+                $state !== null
+                && isset($state['attachmentTypes'])
+                && $state['attachmentTypes'] !== $attachmentTypes
+            ) {
+                return $this->error(409, 'idempotencyConflict', 'The idempotency key was already used with different attachments.', $corsHeaders);
             }
             if (($state['status'] ?? '') === 'completed' && is_array($state['response'] ?? null)) {
                 return new RelayResponse(200, $corsHeaders, $state['response']);
@@ -391,20 +409,21 @@ final class RelayApplication
                 $state = [
                     'status' => 'taskCreated',
                     'taskFingerprint' => $taskFingerprint,
+                    'attachmentTypes' => $attachmentTypes,
                     'taskGid' => (string)$createdTask['taskGid'],
                     'taskUrl' => (string)$createdTask['taskUrl'],
-                    'screenshotUploaded' => false,
+                    'screenshotUploaded' => $screenshotFile === null,
                     'videoUploaded' => $videoFile === null,
                 ];
                 $this->storeSubmissionState($lock['statePath'], $state);
             }
 
-            if (($state['screenshotUploaded'] ?? false) !== true) {
+            if ($screenshotFile !== null && ($state['screenshotUploaded'] ?? false) !== true) {
                 try {
                     $this->asanaClient->uploadAttachment(
                         (string)$state['taskGid'],
-                        $screenshotResult,
-                        'feedback-' . bin2hex(random_bytes(8)) . '.' . $screenshotResult['extension']
+                        $screenshotFile,
+                        'feedback-' . bin2hex(random_bytes(8)) . '.' . $screenshotFile['extension']
                     );
                     $state['screenshotUploaded'] = true;
                     $state['status'] = 'screenshotUploaded';
@@ -430,6 +449,13 @@ final class RelayApplication
                     $state['videoUploaded'] = true;
                 } catch (\Throwable $exception) {
                     error_log('asana-feedback relay: video upload failed for task ' . $state['taskGid'] . ': ' . $exception->getMessage());
+                    if ($screenshotFile === null) {
+                        $additionalPayload = [];
+                        if (($grant['includeTaskUrl'] ?? false) === true) {
+                            $additionalPayload['taskUrl'] = (string)$state['taskUrl'];
+                        }
+                        return $this->error(502, 'attachmentFailed', 'The task was created but the screencast could not be attached.', $corsHeaders, $additionalPayload);
+                    }
                     $warnings[] = 'videoUploadFailed';
                 }
             }

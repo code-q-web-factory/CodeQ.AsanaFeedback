@@ -38,9 +38,10 @@
             <trans-unit id="errorGeneric" xml:space="preserve"><source>Your feedback could not be submitted. Please try again later.</source></trans-unit>
             <trans-unit id="errorValidation" xml:space="preserve"><source>Please check your input.</source></trans-unit>
             <trans-unit id="errorDescriptionRequired" xml:space="preserve"><source>Please enter a description.</source></trans-unit>
+            <trans-unit id="errorMediaRequired" xml:space="preserve"><source>Please add a screenshot or screencast.</source></trans-unit>
             <trans-unit id="errorRateLimit" xml:space="preserve"><source>Too many requests. Please try again later.</source></trans-unit>
             <trans-unit id="errorConfiguration" xml:space="preserve"><source>The feedback module is not configured completely. Please contact the website team.</source></trans-unit>
-            <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the screenshot could not be attached. Please report this.</source></trans-unit>
+            <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the feedback file could not be attached. Please report this.</source></trans-unit>
             <trans-unit id="errorScreenshot" xml:space="preserve"><source>The screenshot could not be created on this page.</source></trans-unit>
             <trans-unit id="errorForbidden" xml:space="preserve"><source>The feedback function is not available.</source></trans-unit>
             <trans-unit id="fileTooLarge" xml:space="preserve"><source>The file is too large. The maximum size is 95 MB.</source></trans-unit>

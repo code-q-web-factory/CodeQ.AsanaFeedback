@@ -21,7 +21,7 @@ async function parseResponse(response) {
 export async function submitFeedbackDirect({
     prepareUrl,
     submission,
-    screenshot,
+    screenshot = null,
     video = null,
     fetchImpl = window.fetch.bind(window),
 }) {
@@ -47,7 +47,9 @@ export async function submitFeedbackDirect({
         new Blob([grant.uploadToken], { type: 'application/vnd.codeq.feedback-grant' }),
         'upload-grant.cqaf'
     );
-    formData.append('screenshot', screenshot.blob, screenshot.fileName);
+    if (screenshot) {
+        formData.append('screenshot', screenshot.blob, screenshot.fileName);
+    }
     if (video) {
         formData.append('video', video.blob, video.fileName);
     }

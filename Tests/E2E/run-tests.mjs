@@ -128,33 +128,45 @@ async function installSyntheticScreenCapture(page) {
     });
 }
 
-async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectedAssigneeCount, expectTaskLink, recordVideo = false }) {
+async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectedAssigneeCount, expectTaskLink, recordVideo = false, recordVideoOnly = false }) {
     await page.locator('.cqaf-fab').waitFor({ state: 'visible', timeout: 20000 });
     await page.click('.cqaf-fab');
 
     // capture can take a while on a DOM heavy page
     await page.locator('.cqaf-annotator').waitFor({ state: 'visible', timeout: 60000 });
-    await drawAllAnnotations(page);
-    await page.click('[data-action="continue"]');
+    if (recordVideoOnly) {
+        await page.click('.cqaf-annotator [data-action="record-screencast"]');
+        await page.locator('[data-action="stop-recording"]').waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(1500);
+        await page.click('[data-action="stop-recording"]');
+    } else {
+        await drawAllAnnotations(page);
+        await page.click('[data-action="continue"]');
+    }
 
     const form = page.locator('.cqaf-form');
     await form.waitFor({ state: 'visible', timeout: 15000 });
 
-    // screenshot preview must be visible, span the form width and use the branded title
-    const preview = page.locator('.cqaf-form__preview');
-    if (!(await preview.isVisible())) throw new Error('screenshot preview missing');
-    const previewBox = await preview.boundingBox();
-    const previewWrapperBox = await page.locator('.cqaf-form__preview-wrap').boundingBox();
-    if (!previewBox || !previewWrapperBox || Math.abs(previewBox.width - previewWrapperBox.width) > 1) {
-        throw new Error('screenshot preview does not span the form width');
+    if (recordVideoOnly) {
+        if (await page.locator('.cqaf-form__preview').count()) throw new Error('video-only feedback still contains a screenshot preview');
+        await page.locator('.cqaf-form__media-only .cqaf-screencast__attached').waitFor({ state: 'visible', timeout: 10000 });
+    } else {
+        // screenshot preview must be visible and span the form width
+        const preview = page.locator('.cqaf-form__preview');
+        if (!(await preview.isVisible())) throw new Error('screenshot preview missing');
+        const previewBox = await preview.boundingBox();
+        const previewWrapperBox = await page.locator('.cqaf-form__preview-wrap').boundingBox();
+        if (!previewBox || !previewWrapperBox || Math.abs(previewBox.width - previewWrapperBox.width) > 1) {
+            throw new Error('screenshot preview does not span the form width');
+        }
+        const editAnnotationsBox = await page.locator('.cqaf-form__preview-actions > button').boundingBox();
+        const recordScreencastBox = await page.locator('.cqaf-form__preview-actions [data-action="record-screencast"]').boundingBox();
+        if (!editAnnotationsBox || !recordScreencastBox || Math.abs(editAnnotationsBox.y - recordScreencastBox.y) > 1 || recordScreencastBox.x <= editAnnotationsBox.x) {
+            throw new Error('record screencast action is not to the right of edit annotations');
+        }
     }
     if ((await page.locator('.cqaf-panel__title').textContent()) !== 'Write Code Q') {
         throw new Error('feedback panel title is not branded');
-    }
-    const editAnnotationsBox = await page.locator('.cqaf-form__preview-actions > button').boundingBox();
-    const recordScreencastBox = await page.locator('[data-action="record-screencast"]').boundingBox();
-    if (!editAnnotationsBox || !recordScreencastBox || Math.abs(editAnnotationsBox.y - recordScreencastBox.y) > 1 || recordScreencastBox.x <= editAnnotationsBox.x) {
-        throw new Error('record screencast action is not to the right of edit annotations');
     }
 
     const assigneeCount = await page.locator('.cqaf-assignee').count();
@@ -192,6 +204,11 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     const uploadContentType = await response.request().headerValue('content-type');
     if (!(uploadContentType || '').startsWith('multipart/form-data; boundary=')) {
         throw new Error('relay upload is not binary multipart data');
+    }
+    if (recordVideoOnly) {
+        const uploadBody = await response.request().postDataBuffer();
+        if (!uploadBody.includes(Buffer.from('name="video"'))) throw new Error('video-only upload has no video part');
+        if (uploadBody.includes(Buffer.from('name="screenshot"'))) throw new Error('video-only upload contains a screenshot part');
     }
     const payload = await response.json();
 
@@ -271,13 +288,13 @@ for (const [engineName, engine] of Object.entries(engines)) {
             assigneeKey: engineName === 'chromium' ? 'felix' : null,
             expectedAssigneeCount: 5,
             expectTaskLink: false,
-            recordVideo: engineName === 'chromium',
+            recordVideoOnly: engineName === 'chromium',
         });
         const verification = await verifyTaskInAsana({
             marker,
             expectedAuthor: 'E2E Testbot',
             expectedAssigneeGid: engineName === 'chromium' ? FELIX_GID : ROLAND_GID,
-            expectedAttachmentCount: engineName === 'chromium' ? 2 : 1,
+            expectedAttachmentCount: 1,
             ...(anonymousTitle ? { expectedTaskName: anonymousTitle } : {}),
         });
         log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
@@ -285,6 +302,7 @@ for (const [engineName, engine] of Object.entries(engines)) {
 }
 
 await testScenario('chromium-admin-non-team', chromium, async (page) => {
+    await installSyntheticScreenCapture(page);
     await neosLogin(page, 'admin', 'admin');
     await page.goto(BASE, { waitUntil: 'load' });
     const marker = `${RUN_MARKER}-admin`;
@@ -295,8 +313,14 @@ await testScenario('chromium-admin-non-team', chromium, async (page) => {
         assigneeKey: null,
         expectedAssigneeCount: 5,
         expectTaskLink: false,
+        recordVideo: true,
     });
-    const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Admin Admin', expectedAssigneeGid: ROLAND_GID });
+    const verification = await verifyTaskInAsana({
+        marker,
+        expectedAuthor: 'Admin Admin',
+        expectedAssigneeGid: ROLAND_GID,
+        expectedAttachmentCount: 2,
+    });
     log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
 });
 
