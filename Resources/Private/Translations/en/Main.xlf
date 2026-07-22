@@ -43,6 +43,7 @@
             <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the screenshot could not be attached. Please report this.</source></trans-unit>
             <trans-unit id="errorScreenshot" xml:space="preserve"><source>The screenshot could not be created on this page.</source></trans-unit>
             <trans-unit id="errorForbidden" xml:space="preserve"><source>The feedback function is not available.</source></trans-unit>
+            <trans-unit id="fileTooLarge" xml:space="preserve"><source>The file is too large. The maximum size is 95 MB.</source></trans-unit>
             <trans-unit id="newFeedback" xml:space="preserve"><source>Give more feedback</source></trans-unit>
             <trans-unit id="close" xml:space="preserve"><source>Close</source></trans-unit>
             <trans-unit id="screenshotPreviewAlt" xml:space="preserve"><source>Annotated screenshot preview</source></trans-unit>
@@ -51,7 +52,7 @@
             <trans-unit id="recording" xml:space="preserve"><source>Recording …</source></trans-unit>
             <trans-unit id="stopRecording" xml:space="preserve"><source>Stop recording</source></trans-unit>
             <trans-unit id="screencastNotSupported" xml:space="preserve"><source>Screen recording is not supported by this browser.</source></trans-unit>
-            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large to upload.</source></trans-unit>
+            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large. The maximum size is 95 MB.</source></trans-unit>
             <trans-unit id="screencastAudioRequired" xml:space="preserve"><source>Please allow microphone access or select a source with audio.</source></trans-unit>
             <trans-unit id="removeScreencast" xml:space="preserve"><source>Remove screencast</source></trans-unit>
             <trans-unit id="screencastAttached" xml:space="preserve"><source>Screencast attached</source></trans-unit>

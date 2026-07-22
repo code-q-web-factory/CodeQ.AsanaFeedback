@@ -3,7 +3,15 @@
  * MediaRecorder. No external library is required; support is feature
  * detected because browsers differ (especially Safari).
  */
-const MAXIMUM_DURATION_SECONDS = 90;
+const DEFAULT_VIDEO_OPTIONS = {
+    width: 1280,
+    height: 720,
+    idealFrameRate: 20,
+    maximumFrameRate: 24,
+    videoBitsPerSecond: 2_000_000,
+    audioBitsPerSecond: 96_000,
+    maximumDurationSeconds: 90,
+};
 
 export function isScreencastSupported() {
     return Boolean(
@@ -13,8 +21,19 @@ export function isScreencastSupported() {
     );
 }
 
-function pickMimeType() {
-    const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+export function pickMimeType() {
+    if (typeof window.MediaRecorder.isTypeSupported !== 'function') {
+        return '';
+    }
+    const candidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4',
+    ];
     return candidates.find((candidate) => window.MediaRecorder.isTypeSupported(candidate)) || '';
 }
 
@@ -30,11 +49,17 @@ function stopStreamAndCreateAudioError(stream) {
  * The returned promise from stop() (or an automatic stop on the duration
  * cap or when the user ends sharing) resolves with the recorded blob.
  */
-export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
+export async function startScreencast({ onAutoStop, onStreamSelected, media = {} } = {}) {
+    const options = { ...DEFAULT_VIDEO_OPTIONS, ...media };
+    const videoConstraints = {
+        width: { ideal: options.width, max: options.width },
+        height: { ideal: options.height, max: options.height },
+        frameRate: { ideal: options.idealFrameRate, max: options.maximumFrameRate },
+    };
     // the user explicitly picks screen/window/tab; compatible browsers are
     // asked to include tab or system audio in the selected surface
     const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
+        video: videoConstraints,
         audio: true,
         systemAudio: 'include',
         surfaceSwitching: 'include',
@@ -43,13 +68,30 @@ export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
         onStreamSelected();
     }
 
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack && typeof videoTrack.applyConstraints === 'function') {
+        try {
+            await videoTrack.applyConstraints(videoConstraints);
+        } catch (error) {
+            // Some browsers accept getDisplayMedia constraints but refuse to
+            // re-apply them to the selected surface. Recording still works;
+            // the configured bitrate remains the final size guard.
+            console.warn('CodeQ.AsanaFeedback: video constraints could not be applied', error);
+        }
+    }
+
     // Browsers and operating systems do not expose shared audio for every
     // capture surface. Use the microphone when the selected stream has no
     // audio track so the recording still contains an explanation.
     if (stream.getAudioTracks().length === 0 && typeof navigator.mediaDevices.getUserMedia === 'function') {
         let microphoneStream;
         try {
-            microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            microphoneStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    sampleRate: 48000,
+                },
+            });
         } catch (error) {
             throw stopStreamAndCreateAudioError(stream);
         }
@@ -63,8 +105,26 @@ export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
         throw stopStreamAndCreateAudioError(stream);
     }
 
-    const mimeType = pickMimeType();
-    const recorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const requestedMimeType = pickMimeType();
+    const recorderOptions = {
+        ...(requestedMimeType ? { mimeType: requestedMimeType } : {}),
+        videoBitsPerSecond: options.videoBitsPerSecond,
+        audioBitsPerSecond: options.audioBitsPerSecond,
+    };
+    let recorder;
+    try {
+        try {
+            recorder = new window.MediaRecorder(stream, recorderOptions);
+        } catch (error) {
+            // Older Safari versions may support MediaRecorder but reject
+            // bitrate hints. Fall back without disabling recording entirely.
+            recorder = new window.MediaRecorder(stream, requestedMimeType ? { mimeType: requestedMimeType } : undefined);
+        }
+    } catch (error) {
+        stream.getTracks().forEach((track) => track.stop());
+        throw error;
+    }
+    const mimeType = recorder.mimeType || requestedMimeType || 'video/webm';
     const chunks = [];
     recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -92,7 +152,7 @@ export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
                 onAutoStop();
             }
         }
-    }, MAXIMUM_DURATION_SECONDS * 1000);
+    }, options.maximumDurationSeconds * 1000);
 
     // stop automatically when the user ends sharing via the browser UI
     stream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -104,7 +164,13 @@ export async function startScreencast({ onAutoStop, onStreamSelected } = {}) {
         }
     });
 
-    recorder.start(1000);
+    try {
+        recorder.start(1000);
+    } catch (error) {
+        clearTimeout(durationTimeout);
+        stream.getTracks().forEach((track) => track.stop());
+        throw error;
+    }
 
     return {
         mimeType,

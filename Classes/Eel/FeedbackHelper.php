@@ -21,9 +21,9 @@ class FeedbackHelper implements ProtectedContextAwareInterface
      */
     protected $widgetConfigService;
 
-    public function widgetConfig(string $dimensionLanguage, string $submitUrl): string
+    public function widgetConfig(string $dimensionLanguage, string $prepareUrl): string
     {
-        $config = $this->widgetConfigService->buildConfig($dimensionLanguage, $submitUrl);
+        $config = $this->widgetConfigService->buildConfig($dimensionLanguage, $prepareUrl);
 
         // HEX flags keep the JSON safe for embedding inside a <script> tag
         return json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);

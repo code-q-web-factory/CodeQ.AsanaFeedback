@@ -27,7 +27,7 @@ class WidgetConfigService
         'assigneeLabel', 'assigneeNone', 'submit', 'cancel', 'back', 'sending', 'sendingVideo',
         'successTitle', 'successMessage', 'openTask', 'errorTitle', 'errorGeneric',
         'errorValidation', 'errorDescriptionRequired', 'errorRateLimit',
-        'errorConfiguration', 'errorAttachment', 'errorScreenshot', 'errorForbidden',
+        'errorConfiguration', 'errorAttachment', 'errorScreenshot', 'errorForbidden', 'fileTooLarge',
         'newFeedback', 'close', 'screenshotPreviewAlt', 'editAnnotations',
         'recordScreencast', 'recording', 'stopRecording', 'screencastNotSupported',
         'screencastTooLarge', 'screencastAudioRequired', 'removeScreencast', 'screencastAttached', 'videoUploadFailed',
@@ -51,7 +51,13 @@ class WidgetConfigService
      */
     protected $limits;
 
-    public function buildConfig(string $requestedLanguage, string $submitUrl): array
+    /**
+     * @Flow\InjectConfiguration(package="CodeQ.AsanaFeedback", path="media")
+     * @var array
+     */
+    protected $media;
+
+    public function buildConfig(string $requestedLanguage, string $prepareUrl): array
     {
         // the widget is available in German and English, everything else falls back to English
         $locale = strtolower(substr($requestedLanguage, 0, 2)) === 'de' ? 'de' : 'en';
@@ -66,7 +72,7 @@ class WidgetConfigService
 
         return [
             'locale' => $locale,
-            'submitUrl' => $submitUrl,
+            'prepareUrl' => $prepareUrl,
             'user' => [
                 'authenticated' => $userContext['authenticated'],
                 'authorName' => $userContext['authorName'],
@@ -74,9 +80,28 @@ class WidgetConfigService
             ],
             'assignees' => $this->userContextService->getAssigneesForWidget($userContext['isTeamMember']),
             'limits' => [
-                'screenshotBytes' => (int)($this->limits['screenshotBytes'] ?? 10485760),
-                'videoBytes' => (int)($this->limits['videoBytes'] ?? 100000000),
+                'fileBytes' => min(95000000, max(1, (int)($this->limits['fileBytes'] ?? 95000000))),
+                'screenshotBytes' => min(
+                    95000000,
+                    max(1, (int)($this->limits['fileBytes'] ?? 95000000)),
+                    max(1, (int)($this->limits['screenshotBytes'] ?? 95000000))
+                ),
                 'descriptionCharacters' => (int)($this->limits['descriptionCharacters'] ?? 10000),
+            ],
+            'media' => [
+                'screenshot' => [
+                    'mimeTypes' => array_values(array_map('strval', $this->media['screenshot']['mimeTypes'] ?? ['image/webp', 'image/jpeg', 'image/png'])),
+                    'quality' => (float)($this->media['screenshot']['quality'] ?? 0.8),
+                ],
+                'video' => [
+                    'width' => (int)($this->media['video']['width'] ?? 1280),
+                    'height' => (int)($this->media['video']['height'] ?? 720),
+                    'idealFrameRate' => (int)($this->media['video']['idealFrameRate'] ?? 20),
+                    'maximumFrameRate' => (int)($this->media['video']['maximumFrameRate'] ?? 24),
+                    'videoBitsPerSecond' => (int)($this->media['video']['videoBitsPerSecond'] ?? 2000000),
+                    'audioBitsPerSecond' => (int)($this->media['video']['audioBitsPerSecond'] ?? 96000),
+                    'maximumDurationSeconds' => (int)($this->media['video']['maximumDurationSeconds'] ?? 90),
+                ],
             ],
             'labels' => $labels,
         ];

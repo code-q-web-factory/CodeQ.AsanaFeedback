@@ -4,6 +4,8 @@ import { captureViewport } from './capture';
 import { collectTechnicalContext, getNeosContentCanvasUrl } from './context';
 import { Annotator } from './annotator';
 import { isScreencastSupported, startScreencast, fileExtensionForMimeType } from './recorder';
+import { assertFileSize, createOptimizedScreenshot } from './media';
+import { submitFeedbackDirect } from './submission';
 
 /**
  * Core of the feedback widget driving the flow
@@ -15,12 +17,19 @@ import { isScreencastSupported, startScreencast, fileExtensionForMimeType } from
  */
 export function createFeedbackWidget(config, { floatingButton = true, includeIframes = false } = {}) {
     const labels = config.labels;
+    const maximumFileBytes = Math.min(95_000_000, Number(config.limits && config.limits.fileBytes) || 95_000_000);
+    const maximumScreenshotBytes = Math.min(
+        maximumFileBytes,
+        Number(config.limits && config.limits.screenshotBytes) || maximumFileBytes
+    );
 
     const state = {
         annotatedCanvas: null,
         screenshotCanvas: null,
         annotator: null,
         submitting: false,
+        optimizedScreenshot: null,
+        previewObjectUrl: '',
         screencastBlob: null,
         screencastMimeType: '',
         recordingHandle: null,
@@ -199,6 +208,11 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         }
         state.annotatedCanvas = null;
         state.screenshotCanvas = null;
+        state.optimizedScreenshot = null;
+        if (state.previewObjectUrl) {
+            URL.revokeObjectURL(state.previewObjectUrl);
+            state.previewObjectUrl = '';
+        }
         state.submitting = false;
         state.screencastBlob = null;
         state.screencastMimeType = '';
@@ -242,10 +256,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         destroyAnnotator();
         showOverlay();
         state.annotator = new Annotator(state.screenshotCanvas, labels, {
-            onContinue: (annotatedCanvas) => {
+            onContinue: async (annotatedCanvas) => {
                 state.annotatedCanvas = annotatedCanvas;
                 destroyAnnotator();
-                showForm();
+                await showForm();
             },
             onRetake: () => {
                 reset();
@@ -256,10 +270,24 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         state.annotator.mount(overlay);
     }
 
-    function showForm() {
+    async function showForm() {
+        try {
+            state.optimizedScreenshot = await createOptimizedScreenshot(
+                state.annotatedCanvas,
+                config.media && config.media.screenshot
+            );
+            assertFileSize(state.optimizedScreenshot.blob, maximumScreenshotBytes);
+        } catch (error) {
+            showResult(false, mapErrorToLabel(error), null);
+            return;
+        }
+        if (state.previewObjectUrl) {
+            URL.revokeObjectURL(state.previewObjectUrl);
+        }
+        state.previewObjectUrl = URL.createObjectURL(state.optimizedScreenshot.blob);
         const previewImage = h('img', {
             className: 'cqaf-form__preview',
-            src: state.annotatedCanvas.toDataURL('image/png'),
+            src: state.previewObjectUrl,
             alt: labels.screenshotPreviewAlt,
         });
 
@@ -376,6 +404,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                             try {
                                 recordingHandle = await startScreencast({
                                     onStreamSelected: () => concealOverlay(),
+                                    media: config.media && config.media.video,
                                 });
                             } catch (error) {
                                 // the user cancelled the picker or the browser denied access
@@ -401,10 +430,10 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 const mimeType = recordingHandle.mimeType;
                 state.recordingHandle = null;
                 hideRecordingStopButton();
-                if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
+                if (blob && blob.size > 0 && blob.size <= maximumFileBytes) {
                     state.screencastBlob = blob;
-                    state.screencastMimeType = mimeType;
-                } else if (blob && blob.size > config.limits.videoBytes) {
+                    state.screencastMimeType = blob.type || mimeType;
+                } else if (blob && blob.size > maximumFileBytes) {
                     state.screencastBlob = null;
                     errorMessage.textContent = labels.screencastTooLarge;
                     errorMessage.hidden = false;
@@ -463,9 +492,16 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             if (state.recordingHandle) {
                 const recordingHandle = state.recordingHandle;
                 const blob = await recordingHandle.stop();
-                if (blob && blob.size > 0 && blob.size <= config.limits.videoBytes) {
+                if (blob && blob.size > 0 && blob.size <= maximumFileBytes) {
                     state.screencastBlob = blob;
-                    state.screencastMimeType = recordingHandle.mimeType;
+                    state.screencastMimeType = blob.type || recordingHandle.mimeType;
+                } else if (blob && blob.size > maximumFileBytes) {
+                    state.screencastBlob = null;
+                    errorMessage.textContent = labels.screencastTooLarge;
+                    errorMessage.hidden = false;
+                    state.recordingHandle = null;
+                    hideRecordingStopButton();
+                    return;
                 }
                 state.recordingHandle = null;
                 hideRecordingStopButton();
@@ -485,11 +521,24 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
             showUploadingToast(sendingLabel);
 
             try {
-                const result = await submitFeedback({
-                    title: titleField.value,
-                    description,
-                    authorName: authorField ? authorField.value : '',
-                    assigneeKey: selectedAssignee.key,
+                const result = await submitFeedbackDirect({
+                    prepareUrl: config.prepareUrl,
+                    submission: {
+                        submissionId: state.submissionId || '',
+                        title: titleField.value,
+                        description,
+                        authorName: authorField ? authorField.value : '',
+                        assigneeKey: selectedAssignee.key,
+                        pageUrl: window.location.href,
+                        technicalContext: collectTechnicalContext({
+                            contentCanvasUrl: state.contentCanvasUrl,
+                        }),
+                    },
+                    screenshot: state.optimizedScreenshot,
+                    video: state.screencastBlob ? {
+                        blob: state.screencastBlob,
+                        fileName: 'screencast.' + fileExtensionForMimeType(state.screencastMimeType),
+                    } : null,
                 });
                 showSuccessToast(result);
             } catch (error) {
@@ -509,57 +558,13 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
         descriptionField.focus();
     }
 
-    async function submitFeedback(fields) {
-        const screenshotBlob = await new Promise((resolve) => state.annotatedCanvas.toBlob(resolve, 'image/png'));
-        if (!screenshotBlob || screenshotBlob.size > config.limits.screenshotBytes) {
-            throw { errorCode: 'validation' };
-        }
-
-        const formData = new FormData();
-        formData.append('submissionId', state.submissionId || '');
-        formData.append('title', fields.title || '');
-        formData.append('description', fields.description);
-        formData.append('authorName', fields.authorName || '');
-        formData.append('assigneeKey', fields.assigneeKey || '');
-        formData.append('pageUrl', window.location.href);
-        formData.append('technicalContext', JSON.stringify(collectTechnicalContext({
-            contentCanvasUrl: state.contentCanvasUrl,
-        })));
-        formData.append('screenshot', screenshotBlob, 'screenshot.png');
-        if (state.screencastBlob) {
-            formData.append('video', state.screencastBlob, 'screencast.' + fileExtensionForMimeType(state.screencastMimeType));
-        }
-
-        let response;
-        try {
-            response = await fetch(config.submitUrl, {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin',
-            });
-        } catch (networkError) {
-            console.error('CodeQ.AsanaFeedback: network error', networkError);
-            throw { errorCode: 'network' };
-        }
-
-        let payload = null;
-        try {
-            payload = await response.json();
-        } catch (parseError) {
-            payload = null;
-        }
-
-        if (!response.ok || !payload || payload.success !== true) {
-            throw payload || { errorCode: 'internal' };
-        }
-        return payload;
-    }
-
     function mapErrorToLabel(error) {
         const errorCode = error && error.errorCode;
         switch (errorCode) {
             case 'validation':
                 return labels.errorValidation;
+            case 'fileTooLarge':
+                return labels.fileTooLarge;
             case 'rateLimit':
                 return labels.errorRateLimit;
             case 'configuration':

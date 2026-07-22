@@ -113,7 +113,7 @@ export class Annotator {
             preserveObjectStacking: true,
         });
 
-        const backgroundImage = await FabricImage.fromURL(this.screenshotCanvas.toDataURL('image/png'));
+        const backgroundImage = new FabricImage(this.screenshotCanvas);
         backgroundImage.scaleX = this.logicalWidth / backgroundImage.width;
         backgroundImage.scaleY = this.logicalHeight / backgroundImage.height;
         this.canvas.backgroundImage = backgroundImage;

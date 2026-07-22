@@ -21,12 +21,12 @@
   appendExceedingArguments: true
 
 -
-  name: 'AsanaFeedback: Submit feedback'
-  uriPattern: 'codeq-asana-feedback/submit'
+  name: 'AsanaFeedback: Prepare direct upload'
+  uriPattern: 'codeq-asana-feedback/prepare'
   defaults:
     '@package': 'CodeQ.AsanaFeedback'
     '@controller': 'Feedback'
-    '@action': 'submit'
+    '@action': 'prepare'
     '@format': 'json'
   httpMethods: ['POST']
   appendExceedingArguments: true

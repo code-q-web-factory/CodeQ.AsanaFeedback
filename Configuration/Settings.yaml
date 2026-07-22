@@ -48,11 +48,12 @@ CodeQ:
     # RemoteService/ and the README for how to set it up.
     feedbackService:
       endpoint: 'https://docs.codeq.at/asana-feedback/'
-      # Shared secret to authenticate against the relay, provided via
-      # environment so it is never part of versioned configuration.
-      accessToken: '%env:ASANA_FEEDBACK_ACCESS_TOKEN%'
+      # Relay-wide secret used to encrypt and sign short-lived upload grants.
+      # It is distinct from the Asana access token and never reaches the browser.
+      grantSecret: '%env:ASANA_FEEDBACK_GRANT_SECRET%'
 
-    # The fixed Asana project every feedback task is created in.
+    # The only Asana project this website may create feedback tasks in. The
+    # value is encrypted into each upload grant and never exposed to the browser.
     asanaProjectGid: ''
 
     # Assignee used when the visitor does not explicitly select one.
@@ -70,9 +71,23 @@ CodeQ:
       - 'Organisation'
 
     limits:
-      screenshotBytes: 10485760
-      videoBytes: 100000000
+      # Per-file hard limit with headroom below Asana's 100 MB limit.
+      fileBytes: 95000000
+      screenshotBytes: 95000000
       descriptionCharacters: 10000
+
+    media:
+      screenshot:
+        mimeTypes: ['image/webp', 'image/jpeg', 'image/png']
+        quality: 0.8
+      video:
+        width: 1280
+        height: 720
+        idealFrameRate: 20
+        maximumFrameRate: 24
+        videoBitsPerSecond: 2000000
+        audioBitsPerSecond: 96000
+        maximumDurationSeconds: 90
 
     rateLimit:
       # Requests per client IP; protects the public endpoint against abuse.

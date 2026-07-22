@@ -2,18 +2,18 @@ import { chromium, firefox, webkit } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL || 'http://basewebsite.ddev.site';
 // real Asana personal access token used to verify the created tasks; not
-// the relay shared secret the Neos project uses (ASANA_FEEDBACK_ACCESS_TOKEN)
-const TOKEN = process.env.ASANA_ACCESS_TOKEN;
-if (!TOKEN) throw new Error('Set ASANA_ACCESS_TOKEN to an Asana personal access token');
+// the relay-wide upload-grant secret used by Neos (ASANA_FEEDBACK_GRANT_SECRET)
+const TOKEN = process.env.ASANA_FEEDBACK_TEST_ACCESS_TOKEN;
+if (!TOKEN) throw new Error('Set ASANA_FEEDBACK_TEST_ACCESS_TOKEN to an Asana personal access token');
 const PROJECT_GID = '1216274953146548';
 const SECTION_GID = '1216274953146549'; // "Todo"
 const ROLAND_GID = '422230010221';
 const FELIX_GID = '1199657890349514';
 const YURII_GID = '510973132418883';
 const RUN_MARKER = `cqaf-e2e-${Date.now()}`;
+const BASE_ORIGIN = new URL(BASE).origin;
 
 const results = [];
-const createdTaskGids = [];
 
 function log(...args) { console.log(new Date().toISOString().slice(11, 19), ...args); }
 
@@ -94,7 +94,41 @@ async function drawAllAnnotations(page) {
     await page.waitForTimeout(300);
 }
 
-async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectedAssigneeCount, expectTaskLink }) {
+async function installSyntheticScreenCapture(page) {
+    await page.addInitScript(() => {
+        const mediaDevices = navigator.mediaDevices || {};
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: {
+                ...mediaDevices,
+                async getDisplayMedia() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 640;
+                    canvas.height = 360;
+                    const context = canvas.getContext('2d');
+                    context.fillStyle = '#f0f0f0';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    context.fillStyle = '#ff460d';
+                    context.font = '32px sans-serif';
+                    context.fillText('Code Q feedback test', 120, 180);
+                    const videoStream = canvas.captureStream(20);
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    const audioContext = new AudioContextClass();
+                    const oscillator = audioContext.createOscillator();
+                    const destination = audioContext.createMediaStreamDestination();
+                    oscillator.connect(destination);
+                    oscillator.start();
+                    return new MediaStream([
+                        ...videoStream.getVideoTracks(),
+                        ...destination.stream.getAudioTracks(),
+                    ]);
+                },
+            },
+        });
+    });
+}
+
+async function runFeedbackFlow(page, { description, title, authorName, assigneeKey, expectedAssigneeCount, expectTaskLink, recordVideo = false }) {
     await page.locator('.cqaf-fab').waitFor({ state: 'visible', timeout: 20000 });
     await page.click('.cqaf-fab');
 
@@ -133,15 +167,37 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     await page.fill('#cqaf-description', description);
     if (authorName !== null) await page.fill('#cqaf-author', authorName);
     if (assigneeKey) await page.click(`.cqaf-assignee[data-key="${assigneeKey}"]`);
+    if (recordVideo) {
+        await page.click('[data-action="record-screencast"]');
+        await page.locator('[data-action="stop-recording"]').waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(1500);
+        await page.click('[data-action="stop-recording"]');
+        await page.locator('.cqaf-screencast__attached').waitFor({ state: 'visible', timeout: 10000 });
+    }
 
-    const [response] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('codeq-asana-feedback/submit'), { timeout: 90000 }),
-        page.click('.cqaf-form button[type="submit"]'),
-    ]);
+    const prepareResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().includes('codeq-asana-feedback/prepare'),
+        { timeout: 30000 }
+    );
+    const uploadResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().includes('action=upload'),
+        { timeout: 90000 }
+    );
+    await page.click('.cqaf-form button[type="submit"]');
+    const [prepareResponse, response] = await Promise.all([prepareResponsePromise, uploadResponsePromise]);
+    const prepareContentType = await prepareResponse.request().headerValue('content-type');
+    if (!(prepareContentType || '').startsWith('application/json')) {
+        throw new Error('Neos prepare request is not JSON metadata');
+    }
+    const uploadContentType = await response.request().headerValue('content-type');
+    if (!(uploadContentType || '').startsWith('multipart/form-data; boundary=')) {
+        throw new Error('relay upload is not binary multipart data');
+    }
     const payload = await response.json();
 
-    await page.locator('.cqaf-panel--result').waitFor({ state: 'visible', timeout: 15000 });
-    const success = await page.locator('.cqaf-result__icon--success').count();
+    const successIcon = page.locator('.cqaf-toast--visible .cqaf-result__icon--success');
+    await successIcon.waitFor({ state: 'visible', timeout: 15000 });
+    const success = await successIcon.count();
     if (!success) throw new Error(`no success state, response: ${JSON.stringify(payload).slice(0, 300)}`);
 
     const taskLinkCount = await page.locator('.cqaf-task-link').count();
@@ -151,17 +207,15 @@ async function runFeedbackFlow(page, { description, title, authorName, assigneeK
     return payload;
 }
 
-async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeGid, expectedTaskName }) {
+async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeGid, expectedTaskName, expectedAttachmentCount = 1 }) {
     let task = null;
     for (let attempt = 0; attempt < 5 && !task; attempt++) {
         task = await findTaskByMarker(marker);
         if (!task) await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     if (!task) throw new Error(`task with marker ${marker} not found in Todo section`);
-    createdTaskGids.push(task.gid);
-
     if (!(task.notes || '').includes(`Author: ${expectedAuthor}`)) throw new Error(`author missing in notes: ${task.notes.slice(0, 200)}`);
-    if (!(task.notes || '').includes('URL: http://basewebsite.ddev.site')) throw new Error('page URL missing in notes');
+    if (!(task.notes || '').includes(`URL: ${BASE_ORIGIN}`)) throw new Error('page URL missing in notes');
     if (!(task.notes || '').includes('Created at:')) throw new Error('timestamp missing in notes');
     if (!(task.notes || '').includes('Browser:')) throw new Error('technical context missing in notes');
 
@@ -175,7 +229,9 @@ async function verifyTaskInAsana({ marker, expectedAuthor, expectedAssigneeGid, 
     if ((expectedAssigneeGid || null) !== actualAssigneeGid) throw new Error(`assignee mismatch: expected ${expectedAssigneeGid}, got ${actualAssigneeGid}`);
 
     const attachments = await asana('GET', `/attachments?parent=${task.gid}&opt_fields=name,size`);
-    if (attachments.length < 1) throw new Error('no attachment on task');
+    if (attachments.length < expectedAttachmentCount) {
+        throw new Error(`expected ${expectedAttachmentCount} attachment(s), saw ${attachments.length}`);
+    }
     return { taskGid: task.gid, attachments: attachments.length };
 }
 
@@ -202,6 +258,9 @@ const engines = { chromium, firefox, webkit };
 
 for (const [engineName, engine] of Object.entries(engines)) {
     await testScenario(`${engineName}-anonymous`, engine, async (page) => {
+        if (engineName === 'chromium') {
+            await installSyntheticScreenCapture(page);
+        }
         await page.goto(BASE, { waitUntil: 'load' });
         const marker = `${RUN_MARKER}-${engineName}-anon`;
         const anonymousTitle = engineName === 'chromium' ? `Anon Custom Title ${marker}` : null;
@@ -212,11 +271,13 @@ for (const [engineName, engine] of Object.entries(engines)) {
             assigneeKey: engineName === 'chromium' ? 'felix' : null,
             expectedAssigneeCount: 5,
             expectTaskLink: false,
+            recordVideo: engineName === 'chromium',
         });
         const verification = await verifyTaskInAsana({
             marker,
             expectedAuthor: 'E2E Testbot',
             expectedAssigneeGid: engineName === 'chromium' ? FELIX_GID : ROLAND_GID,
+            expectedAttachmentCount: engineName === 'chromium' ? 2 : 1,
             ...(anonymousTitle ? { expectedTaskName: anonymousTitle } : {}),
         });
         log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
@@ -255,16 +316,6 @@ await testScenario('chromium-team-roland', chromium, async (page) => {
     const verification = await verifyTaskInAsana({ marker, expectedAuthor: 'Roland Schuetz', expectedAssigneeGid: YURII_GID, expectedTaskName: customTitle });
     log(`  task ${verification.taskGid} verified, ${verification.attachments} attachment(s)`);
 });
-
-// ---- cleanup: remove all E2E tasks from Asana ----
-for (const taskGid of createdTaskGids) {
-    try {
-        await asana('DELETE', `/tasks/${taskGid}`);
-        log(`cleaned up task ${taskGid}`);
-    } catch (error) {
-        log(`cleanup failed for ${taskGid}: ${error.message}`);
-    }
-}
 
 log('\n==== SUMMARY ====');
 for (const result of results) log(result.ok ? `PASS ${result.name}` : `FAIL ${result.name}: ${result.error}`);

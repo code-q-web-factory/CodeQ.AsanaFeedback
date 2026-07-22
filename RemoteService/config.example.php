@@ -8,12 +8,23 @@ return [
     // https://app.asana.com/0/my-apps
     'asanaAccessToken' => '',
 
-    // Shared secret the CMS projects use to authenticate against this relay
-    // (their ASANA_FEEDBACK_ACCESS_TOKEN environment variable). Generate a
-    // strong random value, e.g. with: openssl rand -hex 32
-    'sharedSecret' => '',
+    // Relay-wide secret used by every Neos installation to encrypt and sign
+    // short-lived grants. Generate it once with: openssl rand -hex 32
+    'grantSecret' => '',
 
-    // Optional allowlist of Asana project GIDs tasks may be created in.
-    // An empty list accepts every project the integration user can access.
-    'allowedProjectGids' => [],
+    // Must be writable by PHP and should live outside the public web root.
+    // Completed idempotency records and small rate-limit counters live here;
+    // uploaded files continue to use PHP's generated upload temp files.
+    'stateDirectory' => '/var/lib/codeq-asana-feedback',
+
+    'rateLimit' => [
+        'maxPerMinute' => 5,
+        'maxPerHour' => 40,
+    ],
+
+    'timeouts' => [
+        'connectSeconds' => 10,
+        'requestSeconds' => 60,
+        'uploadSeconds' => 300,
+    ],
 ];

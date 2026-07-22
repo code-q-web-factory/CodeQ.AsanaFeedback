@@ -6,6 +6,7 @@ namespace CodeQ\AsanaFeedback\Tests\Unit;
 
 use CodeQ\AsanaFeedback\Exception\ValidationException;
 use CodeQ\AsanaFeedback\Service\FeedbackService;
+use CodeQ\AsanaFeedback\Service\SubmissionIdValidator;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,7 +19,11 @@ class FeedbackServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->feedbackService = new FeedbackService();
+        $this->inject('submissionIdValidator', new SubmissionIdValidator());
         $this->inject('settings', [
+            'asanaProjectGid' => '1216274953146548',
+            'asanaSectionGid' => '1216274953146549',
+            'asanaSectionNames' => ['Todo'],
             'defaultAssigneeGid' => '422230010221',
             'assignees' => [
                 'roland' => ['label' => 'Roland', 'asanaUserGid' => '422230010221', 'visibleToClient' => true],
@@ -115,5 +120,40 @@ class FeedbackServiceTest extends TestCase
         self::assertStringContainsString('Content canvas URL: https://example.com/de/content-page', $notes);
         self::assertStringContainsString('User agent: Mozilla/5.0', $notes);
         self::assertStringNotContainsString('must not appear', $notes);
+    }
+
+    public function testPreparesTrustedTaskClaimsWithoutBinaryData(): void
+    {
+        $this->inject('userContextService', new class {
+            public function getCurrentUserContext(): array
+            {
+                return [
+                    'authenticated' => true,
+                    'accountIdentifier' => 'roland.schuetz',
+                    'authorName' => 'Roland Schuetz',
+                    'isTeamMember' => true,
+                ];
+            }
+        });
+
+        $prepared = $this->feedbackService->prepareSubmission([
+            'submissionId' => '70ba5883-9047-4e4f-8c47-043141190832',
+            'title' => 'Broken navigation',
+            'description' => 'The mobile menu cannot be closed.',
+            'authorName' => 'Forged Browser Name',
+            'projectGid' => '9999999999999999',
+            'assigneeKey' => 'yurii',
+            'pageUrl' => 'https://www.ilf.com/services',
+            'technicalContext' => ['browser' => 'Firefox 141'],
+        ]);
+
+        self::assertSame('70ba5883-9047-4e4f-8c47-043141190832', $prepared['submissionId']);
+        self::assertTrue($prepared['includeTaskUrl']);
+        self::assertSame('1216274953146548', $prepared['task']['projectGid']);
+        self::assertSame('510973132418883', $prepared['task']['assigneeGid']);
+        self::assertSame('Broken navigation', $prepared['task']['name']);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $prepared['taskFingerprint']);
+        self::assertStringContainsString('Author: Roland Schuetz', $prepared['task']['notes']);
+        self::assertStringNotContainsString('Forged Browser Name', $prepared['task']['notes']);
     }
 }

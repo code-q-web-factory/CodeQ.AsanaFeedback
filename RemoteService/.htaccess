@@ -6,14 +6,14 @@
     Require all denied
 </Files>
 
-# Apache strips the Authorization header from PHP by default
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+# Reject oversized request bodies while the web server/PHP SAPI reads them.
+# The application then enforces the exact decimal 95 MB per-file limit and
+# returns a JSON error. Keep equivalent limits in nginx/PHP-FPM deployments.
+LimitRequestBody 191000000
 
-# Screencasts can be up to 100 MB plus a 10 MB screenshot; raise the PHP
-# limits accordingly (only works with mod_php - otherwise configure the
-# same values in the pool/php.ini)
 <IfModule mod_php.c>
-    php_value upload_max_filesize 128M
-    php_value post_max_size 128M
-    php_value max_execution_time 300
+    php_value upload_max_filesize 95000000
+    php_value post_max_size 191000000
+    php_value max_input_time 300
+    php_value max_execution_time 900
 </IfModule>

@@ -4,25 +4,17 @@ declare(strict_types=1);
 
 namespace CodeQ\AsanaFeedback\Service;
 
-use CodeQ\AsanaFeedback\Exception\AsanaApiException;
 use CodeQ\AsanaFeedback\Exception\ConfigurationException;
 use CodeQ\AsanaFeedback\Exception\ValidationException;
 use Neos\Flow\Annotations as Flow;
-use Neos\Utility\Files;
-use Psr\Http\Message\UploadedFileInterface;
-use Psr\Log\LoggerInterface;
 
 /**
- * Validates a feedback submission and turns it into exactly one Asana task
- * with the annotated screenshot (and optionally a screencast) attached.
+ * Validates feedback metadata and resolves trusted Asana task claims.
  *
  * @Flow\Scope("singleton")
  */
 class FeedbackService
 {
-    protected const ALLOWED_SCREENSHOT_MIME_TYPES = ['image/png', 'image/jpeg'];
-    protected const ALLOWED_VIDEO_MIME_TYPES = ['video/webm', 'video/mp4', 'video/quicktime', 'video/x-matroska'];
-
     /**
      * Whitelisted technical context keys with the labels used in the task
      * notes; everything else sent by the browser is discarded.
@@ -40,27 +32,15 @@ class FeedbackService
 
     /**
      * @Flow\Inject
-     * @var FeedbackRelayClient
-     */
-    protected $feedbackRelayClient;
-
-    /**
-     * @Flow\Inject
      * @var UserContextService
      */
     protected $userContextService;
 
     /**
      * @Flow\Inject
-     * @var SubmissionStore
+     * @var SubmissionIdValidator
      */
-    protected $submissionStore;
-
-    /**
-     * @Flow\Inject(name="Neos.Flow:SystemLogger")
-     * @var LoggerInterface
-     */
-    protected $logger;
+    protected $submissionIdValidator;
 
     /**
      * @Flow\InjectConfiguration(package="CodeQ.AsanaFeedback")
@@ -69,28 +49,22 @@ class FeedbackService
     protected $settings;
 
     /**
-     * Creates the Asana task for one feedback submission.
+     * Validates browser metadata and resolves all trusted task claims before
+     * any binary upload is accepted. The result is encrypted into the direct
+     * upload grant, so project, section and assignee GIDs never reach browser
+     * code as readable configuration.
      *
-     * @param array $submission ['submissionId' => ?string, 'description' => string, 'authorName' => ?string, 'assigneeKey' => ?string, 'pageUrl' => string, 'technicalContext' => array]
-     * @return array{success: bool, taskUrl: ?string, warnings: array<string>}
-     * @throws ValidationException|ConfigurationException|AsanaApiException
+     * @return array{submissionId: string, includeTaskUrl: bool, taskFingerprint: string, task: array}
      */
-    public function submit(array $submission, ?UploadedFileInterface $screenshot, ?UploadedFileInterface $video = null): array
+    public function prepareSubmission(array $submission): array
     {
-        // a retried (timed out) submission carries the same id, so return the
-        // already created task instead of creating a duplicate
         $submissionId = trim((string)($submission['submissionId'] ?? ''));
-        if ($submissionId !== '') {
-            $existingResult = $this->submissionStore->getResult($submissionId);
-            if ($existingResult !== null) {
-                $this->logger->info(sprintf('CodeQ.AsanaFeedback: Returning cached result for resubmitted feedback %s', $submissionId));
-                return $existingResult;
-            }
+        if (!$this->submissionIdValidator->isValid($submissionId)) {
+            throw new ValidationException('A valid idempotency key is required.', 1752130022);
         }
 
         $userContext = $this->userContextService->getCurrentUserContext();
         $limits = $this->settings['limits'] ?? [];
-
         $description = trim((string)($submission['description'] ?? ''));
         if ($description === '') {
             throw new ValidationException('The description must not be empty.', 1752130010);
@@ -105,7 +79,7 @@ class FeedbackService
             throw new ValidationException('The page URL is missing or invalid.', 1752130012);
         }
 
-        // the server side identity always wins over anything sent by the browser
+        // The authenticated server-side identity always wins over browser input.
         if ($userContext['authenticated']) {
             $authorName = $userContext['authorName'] ?? $userContext['accountIdentifier'];
         } else {
@@ -115,93 +89,39 @@ class FeedbackService
             }
         }
 
+        $projectGid = trim((string)($this->settings['asanaProjectGid'] ?? ''));
+        if (preg_match('/^\d+$/', $projectGid) !== 1) {
+            throw new ConfigurationException('No valid Asana project GID is configured.', 1752130014);
+        }
         $assigneeGid = $this->resolveAssigneeGid($submission['assigneeKey'] ?? null, $userContext['isTeamMember']);
-
         $title = $this->sanitizeSingleLine((string)($submission['title'] ?? ''), 200);
+        $technicalContext = is_array($submission['technicalContext'] ?? null) ? $submission['technicalContext'] : [];
 
-        if ($screenshot === null || $screenshot->getError() !== UPLOAD_ERR_OK) {
-            throw new ValidationException('The screenshot is missing or the upload failed.', 1752130013);
-        }
-        $screenshotFile = $this->moveUploadToTemporaryFile(
-            $screenshot,
-            (int)($limits['screenshotBytes'] ?? 10485760),
-            self::ALLOWED_SCREENSHOT_MIME_TYPES
+        $task = [
+            'projectGid' => $projectGid,
+            'sectionGid' => trim((string)($this->settings['asanaSectionGid'] ?? '')),
+            'sectionNames' => array_map('strval', $this->settings['asanaSectionNames'] ?? []),
+            'name' => $this->buildTaskName($title, $description),
+            'notes' => $this->buildTaskNotes($description, (string)$authorName, $pageUrl, $technicalContext),
+            'assigneeGid' => $assigneeGid,
+        ];
+        $fingerprintTask = $task;
+        // The human-readable creation time changes when a browser retries
+        // /prepare. Replace only that generated value for the fingerprint so
+        // retries stay idempotent while changed user content still conflicts.
+        $fingerprintTask['notes'] = $this->buildTaskNotes(
+            $description,
+            (string)$authorName,
+            $pageUrl,
+            $technicalContext,
+            '<submission-time>'
         );
-
-        $videoFile = null;
-        if ($video !== null && $video->getError() === UPLOAD_ERR_OK) {
-            $videoFile = $this->moveUploadToTemporaryFile(
-                $video,
-                (int)($limits['videoBytes'] ?? 100000000),
-                self::ALLOWED_VIDEO_MIME_TYPES
-            );
-        }
-
-        try {
-            $result = $this->createAsanaTask($title, $description, $authorName, $pageUrl, $assigneeGid, $submission['technicalContext'] ?? [], $screenshotFile, $videoFile);
-            if ($submissionId !== '') {
-                // remember the outcome so a retry with the same id is deduplicated
-                $this->submissionStore->storeResult($submissionId, $result);
-            }
-            return $result;
-        } finally {
-            // temporary files must disappear regardless of transfer success
-            foreach ([$screenshotFile, $videoFile] as $temporaryFile) {
-                if ($temporaryFile !== null && file_exists($temporaryFile['path'])) {
-                    @unlink($temporaryFile['path']);
-                }
-            }
-        }
-    }
-
-    /**
-     * @param array{path: string, mimeType: string, extension: string} $screenshotFile
-     * @param array{path: string, mimeType: string, extension: string}|null $videoFile
-     * @return array{success: bool, taskUrl: ?string, warnings: array<string>}
-     */
-    protected function createAsanaTask(
-        string $title,
-        string $description,
-        string $authorName,
-        string $pageUrl,
-        ?string $assigneeGid,
-        array $technicalContext,
-        array $screenshotFile,
-        ?array $videoFile
-    ): array {
-        $projectGid = (string)($this->settings['asanaProjectGid'] ?? '');
-        if ($projectGid === '') {
-            throw new ConfigurationException('No Asana project GID is configured.', 1752130014);
-        }
-
-        // the relay service resolves the section, creates the task and
-        // attaches the files in one request; the Asana token stays there
-        $task = $this->feedbackRelayClient->createTask(
-            [
-                'projectGid' => $projectGid,
-                'sectionGid' => (string)($this->settings['asanaSectionGid'] ?? ''),
-                'sectionNames' => array_map('strval', $this->settings['asanaSectionNames'] ?? []),
-                'name' => $this->buildTaskName($title, $description),
-                'notes' => $this->buildTaskNotes($description, $authorName, $pageUrl, $technicalContext),
-                'assigneeGid' => $assigneeGid,
-            ],
-            $screenshotFile,
-            $videoFile
-        );
-
-        $this->logger->info(
-            sprintf('CodeQ.AsanaFeedback: Created Asana task %s (%s) for feedback by "%s" on %s', $task['taskGid'], $task['taskUrl'], $authorName, $pageUrl)
-        );
-        if ($task['warnings'] !== []) {
-            $this->logger->error(
-                sprintf('CodeQ.AsanaFeedback: Task %s was created with warnings: %s', $task['taskGid'], implode(', ', $task['warnings']))
-            );
-        }
 
         return [
-            'success' => true,
-            'taskUrl' => $task['taskUrl'] !== '' ? $task['taskUrl'] : null,
-            'warnings' => $task['warnings'],
+            'submissionId' => $submissionId,
+            'includeTaskUrl' => $userContext['isTeamMember'] === true,
+            'taskFingerprint' => hash('sha256', json_encode($fingerprintTask, JSON_THROW_ON_ERROR)),
+            'task' => $task,
         ];
     }
 
@@ -230,50 +150,6 @@ class FeedbackService
     }
 
     /**
-     * Streams an upload to a temporary file with a server generated name and
-     * verifies size and real MIME type (as detected from the file content).
-     *
-     * @return array{path: string, mimeType: string, extension: string}
-     */
-    protected function moveUploadToTemporaryFile(UploadedFileInterface $upload, int $maximumBytes, array $allowedMimeTypes): array
-    {
-        if ($upload->getSize() !== null && $upload->getSize() > $maximumBytes) {
-            throw new ValidationException('The uploaded file exceeds the allowed size.', 1752130018);
-        }
-
-        // client supplied file names are never used for the temporary file
-        $temporaryPath = Files::concatenatePaths([sys_get_temp_dir(), 'codeq-asana-feedback-' . bin2hex(random_bytes(16))]);
-        $upload->moveTo($temporaryPath);
-
-        if (filesize($temporaryPath) > $maximumBytes) {
-            @unlink($temporaryPath);
-            throw new ValidationException('The uploaded file exceeds the allowed size.', 1752130019);
-        }
-
-        $fileInfo = new \finfo(FILEINFO_MIME_TYPE);
-        $detectedMimeType = (string)$fileInfo->file($temporaryPath);
-        if (!in_array($detectedMimeType, $allowedMimeTypes, true)) {
-            @unlink($temporaryPath);
-            throw new ValidationException(sprintf('The file type "%s" is not allowed.', $detectedMimeType), 1752130020);
-        }
-
-        $extensionMap = [
-            'image/png' => 'png',
-            'image/jpeg' => 'jpg',
-            'video/webm' => 'webm',
-            'video/mp4' => 'mp4',
-            'video/quicktime' => 'mov',
-            'video/x-matroska' => 'mkv',
-        ];
-
-        return [
-            'path' => $temporaryPath,
-            'mimeType' => $detectedMimeType,
-            'extension' => $extensionMap[$detectedMimeType] ?? 'bin',
-        ];
-    }
-
-    /**
      * A title given by a team member becomes the task name as-is; without
      * one the task is named after the description with a marker prefix.
      */
@@ -287,9 +163,15 @@ class FeedbackService
             . (mb_strlen($description) > 80 ? '…' : '');
     }
 
-    protected function buildTaskNotes(string $description, string $authorName, string $pageUrl, array $technicalContext): string
+    protected function buildTaskNotes(
+        string $description,
+        string $authorName,
+        string $pageUrl,
+        array $technicalContext,
+        ?string $createdAt = null
+    ): string
     {
-        $createdAt = (new \DateTimeImmutable())->format('d.m.Y H:i:s T');
+        $createdAt ??= (new \DateTimeImmutable())->format('d.m.Y H:i:s T');
 
         // the description comes first so the task is readable at a glance;
         // all metadata follows below the separator

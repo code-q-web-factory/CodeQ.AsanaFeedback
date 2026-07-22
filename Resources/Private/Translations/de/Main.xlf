@@ -43,6 +43,7 @@
             <trans-unit id="errorAttachment" xml:space="preserve"><source>The task was created, but the screenshot could not be attached. Please report this.</source><target>Die Aufgabe wurde erstellt, aber der Screenshot konnte nicht angehängt werden. Bitte melde das.</target></trans-unit>
             <trans-unit id="errorScreenshot" xml:space="preserve"><source>The screenshot could not be created on this page.</source><target>Der Screenshot konnte auf dieser Seite nicht erstellt werden.</target></trans-unit>
             <trans-unit id="errorForbidden" xml:space="preserve"><source>The feedback function is not available.</source><target>Die Feedback-Funktion ist nicht verfügbar.</target></trans-unit>
+            <trans-unit id="fileTooLarge" xml:space="preserve"><source>The file is too large. The maximum size is 95 MB.</source><target>Die Datei ist zu groß. Die maximale Größe beträgt 95 MB.</target></trans-unit>
             <trans-unit id="newFeedback" xml:space="preserve"><source>Give more feedback</source><target>Weiteres Feedback geben</target></trans-unit>
             <trans-unit id="close" xml:space="preserve"><source>Close</source><target>Schließen</target></trans-unit>
             <trans-unit id="screenshotPreviewAlt" xml:space="preserve"><source>Annotated screenshot preview</source><target>Vorschau des annotierten Screenshots</target></trans-unit>
@@ -51,7 +52,7 @@
             <trans-unit id="recording" xml:space="preserve"><source>Recording …</source><target>Aufnahme läuft …</target></trans-unit>
             <trans-unit id="stopRecording" xml:space="preserve"><source>Stop recording</source><target>Aufnahme beenden</target></trans-unit>
             <trans-unit id="screencastNotSupported" xml:space="preserve"><source>Screen recording is not supported by this browser.</source><target>Bildschirmaufnahme wird von diesem Browser nicht unterstützt.</target></trans-unit>
-            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large to upload.</source><target>Die Aufnahme ist zu groß für den Upload.</target></trans-unit>
+            <trans-unit id="screencastTooLarge" xml:space="preserve"><source>The recording is too large. The maximum size is 95 MB.</source><target>Die Aufnahme ist zu groß. Die maximale Größe beträgt 95 MB.</target></trans-unit>
             <trans-unit id="screencastAudioRequired" xml:space="preserve"><source>Please allow microphone access or select a source with audio.</source><target>Bitte erlaube den Mikrofonzugriff oder wähle eine Quelle mit Audio aus.</target></trans-unit>
             <trans-unit id="removeScreencast" xml:space="preserve"><source>Remove screencast</source><target>Screencast entfernen</target></trans-unit>
             <trans-unit id="screencastAttached" xml:space="preserve"><source>Screencast attached</source><target>Screencast angehängt</target></trans-unit>

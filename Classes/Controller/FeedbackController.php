@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace CodeQ\AsanaFeedback\Controller;
 
-use CodeQ\AsanaFeedback\Exception\AsanaApiException;
 use CodeQ\AsanaFeedback\Exception\ConfigurationException;
 use CodeQ\AsanaFeedback\Exception\TooManyRequestsException;
 use CodeQ\AsanaFeedback\Exception\ValidationException;
 use CodeQ\AsanaFeedback\Service\FeedbackService;
 use CodeQ\AsanaFeedback\Service\RateLimiter;
+use CodeQ\AsanaFeedback\Service\UploadGrantService;
 use CodeQ\AsanaFeedback\Service\UserContextService;
 use CodeQ\AsanaFeedback\Service\WidgetConfigService;
 use Neos\Flow\Annotations as Flow;
@@ -17,15 +17,15 @@ use Neos\Flow\Mvc\Controller\ActionController;
 use Psr\Log\LoggerInterface;
 
 /**
- * Public HTTP endpoint the feedback widget submits to. All Asana
- * communication is triggered from here and happens exclusively server side.
+ * Public metadata endpoint for the feedback widget. Binary files are sent
+ * directly from the browser to the separately deployed feedback relay.
  */
 class FeedbackController extends ActionController
 {
     /**
      * @var array
      */
-    protected $supportedMediaTypes = ['application/json', 'multipart/form-data'];
+    protected $supportedMediaTypes = ['application/json'];
 
     /**
      * @Flow\Inject
@@ -50,6 +50,12 @@ class FeedbackController extends ActionController
      * @var WidgetConfigService
      */
     protected $widgetConfigService;
+
+    /**
+     * @Flow\Inject
+     * @var UploadGrantService
+     */
+    protected $uploadGrantService;
 
     /**
      * @Flow\Inject(name="Neos.Flow:SystemLogger")
@@ -90,28 +96,25 @@ class FeedbackController extends ActionController
 
     protected function widgetConfigJson(string $locale): string
     {
-        $submitUrl = $this->uriBuilder->reset()->setFormat('json')->uriFor('submit', [], 'Feedback', 'CodeQ.AsanaFeedback');
+        $prepareUrl = $this->uriBuilder->reset()->setFormat('json')->uriFor('prepare', [], 'Feedback', 'CodeQ.AsanaFeedback');
 
         return json_encode(
-            $this->widgetConfigService->buildConfig($locale, $submitUrl),
+            $this->widgetConfigService->buildConfig($locale, $prepareUrl),
             JSON_THROW_ON_ERROR
         );
     }
 
     /**
-     * Accepts one feedback submission as multipart/form-data and creates
-     * the Asana task. CSRF protection is skipped because the page markup is
-     * content cached and therefore cannot carry per-session tokens; the
-     * endpoint is rate limited and validates everything server side instead.
+     * Validates the small metadata payload and returns a short-lived upload
+     * grant. Screenshot and video bytes never pass through this endpoint.
      *
      * @Flow\SkipCsrfProtection
      */
-    public function submitAction(): string
+    public function prepareAction(): string
     {
         $httpRequest = $this->request->getHttpRequest();
         $this->response->setContentType('application/json');
 
-        // anonymous submissions are only accepted when explicitly enabled
         if (!$this->userContextService->isWidgetEnabledForCurrentUser()) {
             return $this->jsonError(403, 'forbidden', 'The feedback widget is not enabled for anonymous users.');
         }
@@ -119,42 +122,34 @@ class FeedbackController extends ActionController
         try {
             $clientIp = (string)($httpRequest->getAttribute('clientIpAddress') ?? $httpRequest->getServerParams()['REMOTE_ADDR'] ?? 'unknown');
             $this->rateLimiter->countRequestOrDeny($clientIp);
-
             $parsedBody = $httpRequest->getParsedBody();
-            $uploadedFiles = $httpRequest->getUploadedFiles();
-
-            $technicalContext = [];
-            if (!empty($parsedBody['technicalContext'])) {
-                $decodedContext = json_decode((string)$parsedBody['technicalContext'], true);
-                if (is_array($decodedContext)) {
-                    $technicalContext = $decodedContext;
-                }
+            if (!is_array($parsedBody)) {
+                $parsedBody = json_decode((string)$httpRequest->getBody(), true);
             }
+            if (!is_array($parsedBody)) {
+                throw new ValidationException('The feedback metadata is malformed.', 1752130023);
+            }
+            $technicalContext = is_array($parsedBody['technicalContext'] ?? null)
+                ? $parsedBody['technicalContext']
+                : [];
+            $preparedSubmission = $this->feedbackService->prepareSubmission([
+                'submissionId' => (string)($parsedBody['submissionId'] ?? ''),
+                'title' => (string)($parsedBody['title'] ?? ''),
+                'description' => (string)($parsedBody['description'] ?? ''),
+                'authorName' => (string)($parsedBody['authorName'] ?? ''),
+                'assigneeKey' => (string)($parsedBody['assigneeKey'] ?? ''),
+                'pageUrl' => (string)($parsedBody['pageUrl'] ?? ''),
+                'technicalContext' => $technicalContext,
+            ]);
 
-            $result = $this->feedbackService->submit(
-                [
-                    'submissionId' => (string)($parsedBody['submissionId'] ?? ''),
-                    'title' => (string)($parsedBody['title'] ?? ''),
-                    'description' => (string)($parsedBody['description'] ?? ''),
-                    'authorName' => (string)($parsedBody['authorName'] ?? ''),
-                    'assigneeKey' => (string)($parsedBody['assigneeKey'] ?? ''),
-                    'pageUrl' => (string)($parsedBody['pageUrl'] ?? ''),
-                    'technicalContext' => $technicalContext,
-                ],
-                $uploadedFiles['screenshot'] ?? null,
-                $uploadedFiles['video'] ?? null
-            );
-
-            // the Asana task link is internal and only shown to team members
-            $isTeamMember = $this->userContextService->getCurrentUserContext()['isTeamMember'];
+            $requestUri = $httpRequest->getUri();
+            $requestOrigin = $requestUri->getScheme() . '://' . $requestUri->getAuthority();
 
             return json_encode([
                 'success' => true,
-                'taskUrl' => $isTeamMember ? $result['taskUrl'] : null,
-                'warnings' => $result['warnings'],
-            ], JSON_THROW_ON_ERROR);
+            ] + $this->uploadGrantService->createGrant($preparedSubmission, $requestOrigin), JSON_THROW_ON_ERROR);
         } catch (ValidationException $exception) {
-            $this->logger->warning('CodeQ.AsanaFeedback: Rejected feedback submission: ' . $exception->getMessage());
+            $this->logger->warning('CodeQ.AsanaFeedback: Rejected feedback metadata: ' . $exception->getMessage());
             return $this->jsonError(400, 'validation', $exception->getMessage());
         } catch (TooManyRequestsException $exception) {
             $this->logger->warning('CodeQ.AsanaFeedback: ' . $exception->getMessage());
@@ -162,13 +157,8 @@ class FeedbackController extends ActionController
         } catch (ConfigurationException $exception) {
             $this->logger->critical('CodeQ.AsanaFeedback: Configuration error: ' . $exception->getMessage());
             return $this->jsonError(500, 'configuration', $exception->getMessage());
-        } catch (AsanaApiException $exception) {
-            // 1752130016 marks the partial failure "task created, screenshot upload failed"
-            $errorCode = $exception->getCode() === 1752130016 ? 'attachmentFailed' : 'asana';
-            $this->logger->error('CodeQ.AsanaFeedback: Asana error: ' . $exception->getMessage());
-            return $this->jsonError(502, $errorCode, 'The Asana task could not be created completely.');
         } catch (\Throwable $exception) {
-            $this->logger->error('CodeQ.AsanaFeedback: Unexpected error: ' . $exception->getMessage(), ['exception' => $exception]);
+            $this->logger->error('CodeQ.AsanaFeedback: Unexpected grant error: ' . $exception->getMessage(), ['exception' => $exception]);
             return $this->jsonError(500, 'internal', 'An unexpected error occurred.');
         }
     }

@@ -39,13 +39,13 @@ prototype(CodeQ.AsanaFeedback:Integration.Widget) < prototype(Neos.Fusion:Compon
         }
     }
 
-    submitUri = Neos.Fusion:ActionUri {
+    prepareUri = Neos.Fusion:ActionUri {
         package = 'CodeQ.AsanaFeedback'
         controller = 'Feedback'
-        action = 'submit'
+        action = 'prepare'
         format = 'json'
     }
-    configJson = ${AsanaFeedback.widgetConfig(String.toString(documentNode.context.targetDimensions.language) || 'en', this.submitUri)}
+    configJson = ${AsanaFeedback.widgetConfig(String.toString(documentNode.context.targetDimensions.language) || 'en', this.prepareUri)}
     styleUri = Neos.Fusion:ResourceUri {
         path = 'resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css'
     }
