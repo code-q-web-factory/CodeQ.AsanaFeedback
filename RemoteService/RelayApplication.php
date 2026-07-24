@@ -250,19 +250,6 @@ final class RelayApplication
         $this->codec = new UploadGrantCodec($grantSecret);
 
         $this->stateDirectory = rtrim((string)($config['stateDirectory'] ?? ''), '/');
-        if ($this->stateDirectory === '') {
-            throw new RelayConfigurationException(
-                'The feedback relay state directory is not configured.'
-            );
-        }
-        foreach ([$this->stateDirectory, $this->stateDirectory . '/idempotency', $this->stateDirectory . '/rate-limit'] as $directory) {
-            if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-                throw new RelayConfigurationException(
-                    'The feedback relay state directory could not be initialized. Please check its permissions.',
-                    sprintf('The relay state directory "%s" could not be created.', $directory)
-                );
-            }
-        }
     }
 
     public function handle(RelayRequest $request): RelayResponse
@@ -302,7 +289,31 @@ final class RelayApplication
             return $this->error(405, 'methodNotAllowed', 'Only POST and OPTIONS requests are accepted.', $corsHeaders);
         }
 
+        try {
+            $this->initializeStateDirectory();
+        } catch (RelayConfigurationException $exception) {
+            error_log('asana-feedback relay: configuration error: ' . $exception->getMessage());
+            return $this->error(500, 'configuration', $exception->publicMessage, $corsHeaders);
+        }
+
         return $this->handleUpload($request, $corsResult, $corsHeaders, $this->codec, $siteId);
+    }
+
+    private function initializeStateDirectory(): void
+    {
+        if ($this->stateDirectory === '') {
+            throw new RelayConfigurationException(
+                'The feedback relay state directory is not configured.'
+            );
+        }
+        foreach ([$this->stateDirectory, $this->stateDirectory . '/idempotency', $this->stateDirectory . '/rate-limit'] as $directory) {
+            if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+                throw new RelayConfigurationException(
+                    'The feedback relay state directory could not be initialized. Please check its permissions.',
+                    sprintf('The relay state directory "%s" could not be created.', $directory)
+                );
+            }
+        }
     }
 
     private function handleUpload(

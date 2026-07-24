@@ -343,7 +343,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 );
                 assertFileSize(state.optimizedScreenshot.blob, maximumScreenshotBytes);
             } catch (error) {
-                showResult(false, mapErrorToLabel(error), null);
+                showResult(false, messageForSubmissionError(error, labels), null);
                 return;
             }
             if (state.previewObjectUrl) {

@@ -156,6 +156,40 @@ class RelayApplicationTest extends TestCase
         );
     }
 
+    public function testReportsAMissingStateDirectoryAfterCorsPreflight(): void
+    {
+        $application = $this->createApplication($asanaClient, null, ['stateDirectory' => '']);
+        $corsToken = $this->codec->encodeCorsPolicy([
+            'expiresAt' => 1_800_000_600,
+            'siteId' => 'ilf-website',
+            'allowedOrigins' => ['https://www.ilf.com'],
+        ]);
+        $preflight = $application->handle(new RelayRequest(
+            'OPTIONS',
+            'https://www.ilf.com',
+            [
+                'access-control-request-method' => 'POST',
+                'access-control-request-headers' => 'content-type,x-idempotency-key',
+            ],
+            ['action' => 'upload', 'site' => 'ilf-website', 'cors' => $corsToken],
+            [],
+            [],
+            '203.0.113.10',
+            null
+        ));
+
+        $upload = $application->handle($this->createUploadRequest([]));
+
+        self::assertSame(204, $preflight->statusCode);
+        self::assertSame(500, $upload->statusCode);
+        self::assertSame('configuration', $upload->payload['errorCode']);
+        self::assertSame(
+            'The feedback relay state directory is not configured.',
+            $upload->payload['message']
+        );
+        self::assertSame('https://www.ilf.com', $upload->headers['Access-Control-Allow-Origin']);
+    }
+
     public function testReportsASpecificAsanaAttachmentErrorToTheBrowser(): void
     {
         $asanaClient = new class implements AsanaClientInterface {
