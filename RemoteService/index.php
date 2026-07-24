@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use CodeQ\AsanaFeedback\RemoteService\CurlAsanaClient;
 use CodeQ\AsanaFeedback\RemoteService\RelayApplication;
+use CodeQ\AsanaFeedback\RemoteService\RelayConfigurationException;
 use CodeQ\AsanaFeedback\RemoteService\RelayRequest;
 use CodeQ\AsanaFeedback\RemoteService\RelayResponse;
 
@@ -41,13 +42,16 @@ function relayError(int $statusCode, string $errorCode, string $message): void
 }
 
 if (!is_file(__DIR__ . '/config.php')) {
-    relayError(500, 'configuration', 'The relay is not configured yet.');
+    relayError(500, 'configuration', 'The feedback relay configuration file is missing.');
 }
 
 try {
     $config = require __DIR__ . '/config.php';
     if (!is_array($config)) {
-        throw new RuntimeException('config.php must return an array.');
+        throw new RelayConfigurationException(
+            'The feedback relay configuration file is invalid.',
+            'config.php must return an array.'
+        );
     }
 
     $headers = function_exists('getallheaders') ? (array)getallheaders() : [];
@@ -75,7 +79,10 @@ try {
     );
     $application = new RelayApplication($config, $asanaClient);
     sendRelayResponse($application->handle($request));
+} catch (RelayConfigurationException $exception) {
+    error_log('asana-feedback relay: configuration error: ' . $exception->getMessage());
+    relayError(500, 'configuration', $exception->publicMessage);
 } catch (Throwable $exception) {
     error_log('asana-feedback relay: unhandled error: ' . $exception->getMessage());
-    relayError(500, 'configuration', 'The relay is not configured correctly.');
+    relayError(500, 'internal', 'The feedback relay encountered an unexpected server error.');
 }

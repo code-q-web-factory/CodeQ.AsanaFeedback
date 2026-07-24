@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace CodeQ\AsanaFeedback\Tests\Unit;
 
 use CodeQ\AsanaFeedback\RemoteService\AsanaClientInterface;
+use CodeQ\AsanaFeedback\RemoteService\AsanaClientException;
+use CodeQ\AsanaFeedback\RemoteService\CurlAsanaClient;
 use CodeQ\AsanaFeedback\RemoteService\RelayApplication;
+use CodeQ\AsanaFeedback\RemoteService\RelayConfigurationException;
 use CodeQ\AsanaFeedback\RemoteService\RelayRequest;
 use CodeQ\AsanaFeedback\RemoteService\UploadGrantCodec;
 use PHPUnit\Framework\TestCase;
@@ -112,6 +115,109 @@ class RelayApplicationTest extends TestCase
         self::assertSame(200, $response->statusCode);
         self::assertSame(1, $asanaClient->createTaskCalls);
         self::assertSame('9876543210123456', $asanaClient->lastCreatedTask['projectGid']);
+    }
+
+    public function testReportsAMissingAsanaTokenToTheBrowser(): void
+    {
+        $application = new RelayApplication(
+            $this->baseConfig(),
+            new CurlAsanaClient(''),
+            static fn(): int => 1_800_000_000,
+            static fn(string $path): bool => is_file($path)
+        );
+        $screenshotPath = __DIR__ . '/../../Resources/Public/Images/Team/roland.jpg';
+        $request = $this->createUploadRequest([
+            'screenshot' => [
+                'error' => UPLOAD_ERR_OK,
+                'tmp_name' => $screenshotPath,
+                'size' => filesize($screenshotPath),
+            ],
+        ]);
+
+        $response = $application->handle($request);
+
+        self::assertSame(500, $response->statusCode);
+        self::assertSame('asanaConfiguration', $response->payload['errorCode']);
+        self::assertSame(
+            'The feedback relay has no Asana access token configured.',
+            $response->payload['message']
+        );
+        self::assertSame('https://www.ilf.com', $response->headers['Access-Control-Allow-Origin']);
+    }
+
+    public function testReportsAMissingRelayGrantSecretClearly(): void
+    {
+        $this->expectException(RelayConfigurationException::class);
+        $this->expectExceptionMessage('The feedback relay grant secret is missing or shorter than 32 characters.');
+
+        new RelayApplication(
+            ['stateDirectory' => $this->stateDirectory],
+            new CurlAsanaClient('unused')
+        );
+    }
+
+    public function testReportsASpecificAsanaAttachmentErrorToTheBrowser(): void
+    {
+        $asanaClient = new class implements AsanaClientInterface {
+            public function resolveSection(string $projectGid, string $sectionGid, array $sectionNames): string
+            {
+                return $sectionGid;
+            }
+
+            public function createTask(array $task, string $sectionGid): array
+            {
+                return ['taskGid' => '1', 'taskUrl' => 'https://app.asana.com/0/1/1'];
+            }
+
+            public function uploadAttachment(string $taskGid, array $file, string $fileName): void
+            {
+                throw new AsanaClientException(
+                    502,
+                    'asanaPermission',
+                    'The feedback relay is not allowed to upload attachments to this Asana task.',
+                    'Asana returned 403 for an attachment request.'
+                );
+            }
+        };
+        $application = new RelayApplication(
+            $this->baseConfig(),
+            $asanaClient,
+            static fn(): int => 1_800_000_000,
+            static fn(string $path): bool => is_file($path)
+        );
+        $screenshotPath = __DIR__ . '/../../Resources/Public/Images/Team/roland.jpg';
+
+        $response = $application->handle($this->createUploadRequest([
+            'screenshot' => [
+                'error' => UPLOAD_ERR_OK,
+                'tmp_name' => $screenshotPath,
+                'size' => filesize($screenshotPath),
+            ],
+        ]));
+
+        self::assertSame(502, $response->statusCode);
+        self::assertSame('asanaPermission', $response->payload['errorCode']);
+        self::assertSame(
+            'The feedback relay is not allowed to upload attachments to this Asana task.',
+            $response->payload['message']
+        );
+    }
+
+    public function testMapsAnAsanaPermissionFailureToASafeUserMessage(): void
+    {
+        $exception = AsanaClientException::fromHttpResponse(
+            403,
+            'Asana request "POST /tasks" returned 403: project details'
+        );
+
+        self::assertSame(502, $exception->statusCode);
+        self::assertSame('asanaPermission', $exception->errorCode);
+        self::assertSame(
+            'The feedback relay does not have permission for the requested Asana operation.',
+            $exception->publicMessage
+        );
+        self::assertStringContainsString('project details', $exception->getMessage());
+        self::assertStringNotContainsString('project details', $exception->publicMessage);
     }
 
     public function testRejectsAnOversizedFileBeforeCreatingAnAsanaTask(): void

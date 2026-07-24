@@ -5,7 +5,7 @@ import { collectTechnicalContext, getNeosContentCanvasUrl } from './context';
 import { Annotator } from './annotator';
 import { isScreencastSupported, startScreencast, fileExtensionForMimeType } from './recorder';
 import { assertFileSize, createOptimizedScreenshot } from './media';
-import { submitFeedbackDirect } from './submission';
+import { messageForSubmissionError, submitFeedbackDirect } from './submission';
 
 /**
  * Core of the feedback widget driving the flow
@@ -604,7 +604,7 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
                 state.submitting = false;
                 submitButton.disabled = false;
                 replaceChildren(submitButton, document.createTextNode(labels.submit));
-                errorMessage.textContent = mapErrorToLabel(error);
+                errorMessage.textContent = messageForSubmissionError(error, labels);
                 errorMessage.hidden = false;
                 revealOverlayAnimated();
             }
@@ -612,26 +612,6 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
 
         showOverlay(h('div', { className: 'cqaf-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': labels.panelTitle }, [form]));
         descriptionField.focus();
-    }
-
-    function mapErrorToLabel(error) {
-        const errorCode = error && error.errorCode;
-        switch (errorCode) {
-            case 'validation':
-                return labels.errorValidation;
-            case 'fileTooLarge':
-                return labels.fileTooLarge;
-            case 'rateLimit':
-                return labels.errorRateLimit;
-            case 'configuration':
-                return labels.errorConfiguration;
-            case 'attachmentFailed':
-                return labels.errorAttachment;
-            case 'forbidden':
-                return labels.errorForbidden;
-            default:
-                return labels.errorGeneric;
-        }
     }
 
     function showResult(success, errorText, payload) {

@@ -13,6 +13,31 @@ async function parseResponse(response) {
     return payload;
 }
 
+export function messageForSubmissionError(error, labels) {
+    const relayMessage = error && typeof error.message === 'string' ? error.message.trim() : '';
+    if (relayMessage !== '') {
+        return relayMessage;
+    }
+
+    const errorCode = error && error.errorCode;
+    switch (errorCode) {
+        case 'validation':
+            return labels.errorValidation;
+        case 'fileTooLarge':
+            return labels.fileTooLarge;
+        case 'rateLimit':
+            return labels.errorRateLimit;
+        case 'configuration':
+            return labels.errorConfiguration;
+        case 'attachmentFailed':
+            return labels.errorAttachment;
+        case 'forbidden':
+            return labels.errorForbidden;
+        default:
+            return labels.errorGeneric;
+    }
+}
+
 /**
  * Sends only small metadata to Neos, then transfers browser-native binary
  * objects straight to the central relay. The opaque grant authenticates the

@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { submitFeedbackDirect } from '../../Resources/Private/JavaScript/src/submission.js';
+import {
+    messageForSubmissionError,
+    submitFeedbackDirect,
+} from '../../Resources/Private/JavaScript/src/submission.js';
+
+test('uses the relay error message for the user', () => {
+    const message = messageForSubmissionError({
+        errorCode: 'asanaConfiguration',
+        message: 'The feedback relay has no Asana access token configured.',
+    }, {
+        errorGeneric: 'Generic error',
+        errorConfiguration: 'Generic configuration error',
+    });
+
+    assert.equal(message, 'The feedback relay has no Asana access token configured.');
+});
 
 test('prepares metadata in Neos and uploads binary files directly to the relay', async () => {
     const calls = [];

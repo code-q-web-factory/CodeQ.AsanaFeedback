@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace CodeQ\AsanaFeedback\RemoteService;
 
 require_once __DIR__ . '/UploadGrantCodec.php';
+require_once __DIR__ . '/AsanaClientException.php';
+require_once __DIR__ . '/RelayConfigurationException.php';
 
 interface AsanaClientInterface
 {
@@ -28,9 +30,6 @@ final class CurlAsanaClient implements AsanaClientInterface
 
     public function __construct(string $accessToken, array $timeouts = [], string $baseUri = 'https://app.asana.com/api/1.0')
     {
-        if ($accessToken === '') {
-            throw new \InvalidArgumentException('The Asana access token is missing.');
-        }
         $this->accessToken = $accessToken;
         $this->baseUri = rtrim($baseUri, '/');
         $this->connectTimeoutSeconds = (int)($timeouts['connectSeconds'] ?? 10);
@@ -52,7 +51,12 @@ final class CurlAsanaClient implements AsanaClientInterface
             }
         }
 
-        throw new \RuntimeException('None of the configured section names exists in the Asana project.');
+        throw new AsanaClientException(
+            502,
+            'asanaSectionNotFound',
+            'None of the configured feedback sections exists in the Asana project.',
+            'None of the configured section names exists in the Asana project.'
+        );
     }
 
     public function createTask(array $task, string $sectionGid): array
@@ -86,6 +90,14 @@ final class CurlAsanaClient implements AsanaClientInterface
 
     private function request(string $method, string $path, ?array $body = null, bool $multipart = false): array
     {
+        if ($this->accessToken === '') {
+            throw new AsanaClientException(
+                500,
+                'asanaConfiguration',
+                'The feedback relay has no Asana access token configured.',
+                'The Asana access token is missing.'
+            );
+        }
         $curlHandle = curl_init($this->baseUri . $path);
         $headers = [
             'Authorization: Bearer ' . $this->accessToken,
@@ -115,16 +127,23 @@ final class CurlAsanaClient implements AsanaClientInterface
         $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
         curl_close($curlHandle);
         if ($responseBody === false) {
-            throw new \RuntimeException(sprintf('Asana request "%s %s" failed: %s', $method, $path, $curlError));
+            throw AsanaClientException::fromConnectionFailure(
+                sprintf('Asana request "%s %s" failed: %s', $method, $path, $curlError)
+            );
         }
 
         $decodedResponse = json_decode((string)$responseBody, true);
         if ($statusCode < 200 || $statusCode >= 300) {
             $message = $decodedResponse['errors'][0]['message'] ?? mb_substr((string)$responseBody, 0, 300);
-            throw new \RuntimeException(sprintf('Asana request "%s %s" returned %d: %s', $method, $path, $statusCode, $message));
+            throw AsanaClientException::fromHttpResponse(
+                $statusCode,
+                sprintf('Asana request "%s %s" returned %d: %s', $method, $path, $statusCode, $message)
+            );
         }
         if (!is_array($decodedResponse) || !array_key_exists('data', $decodedResponse)) {
-            throw new \RuntimeException(sprintf('Asana request "%s %s" returned an unexpected response.', $method, $path));
+            throw AsanaClientException::fromUnexpectedResponse(
+                sprintf('Asana request "%s %s" returned an unexpected response.', $method, $path)
+            );
         }
 
         return $decodedResponse['data'];
@@ -222,15 +241,26 @@ final class RelayApplication
         $this->detectMimeType = \Closure::fromCallable($detectMimeType ?? static function (string $path): string {
             return (string)(new \finfo(FILEINFO_MIME_TYPE))->file($path);
         });
-        $this->codec = new UploadGrantCodec((string)($config['grantSecret'] ?? ''));
+        $grantSecret = (string)($config['grantSecret'] ?? '');
+        if (strlen($grantSecret) < 32) {
+            throw new RelayConfigurationException(
+                'The feedback relay grant secret is missing or shorter than 32 characters.'
+            );
+        }
+        $this->codec = new UploadGrantCodec($grantSecret);
 
         $this->stateDirectory = rtrim((string)($config['stateDirectory'] ?? ''), '/');
         if ($this->stateDirectory === '') {
-            throw new \InvalidArgumentException('A persistent relay state directory must be configured.');
+            throw new RelayConfigurationException(
+                'The feedback relay state directory is not configured.'
+            );
         }
         foreach ([$this->stateDirectory, $this->stateDirectory . '/idempotency', $this->stateDirectory . '/rate-limit'] as $directory) {
             if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-                throw new \RuntimeException(sprintf('The relay state directory "%s" could not be created.', $directory));
+                throw new RelayConfigurationException(
+                    'The feedback relay state directory could not be initialized. Please check its permissions.',
+                    sprintf('The relay state directory "%s" could not be created.', $directory)
+                );
             }
         }
     }
@@ -404,7 +434,12 @@ final class RelayApplication
                     $createdTask = $this->asanaClient->createTask($task, $sectionGid);
                 } catch (\Throwable $exception) {
                     error_log('asana-feedback relay: task creation failed: ' . $exception->getMessage());
-                    return $this->error(502, 'asana', 'The Asana task could not be created.', $corsHeaders);
+                    return $this->asanaError(
+                        $exception,
+                        'asana',
+                        'The Asana task could not be created.',
+                        $corsHeaders
+                    );
                 }
                 $state = [
                     'status' => 'taskCreated',
@@ -434,7 +469,13 @@ final class RelayApplication
                     if (($grant['includeTaskUrl'] ?? false) === true) {
                         $additionalPayload['taskUrl'] = (string)$state['taskUrl'];
                     }
-                    return $this->error(502, 'attachmentFailed', 'The task was created but the screenshot could not be attached.', $corsHeaders, $additionalPayload);
+                    return $this->asanaError(
+                        $exception,
+                        'attachmentFailed',
+                        'The task was created but the screenshot could not be attached.',
+                        $corsHeaders,
+                        $additionalPayload
+                    );
                 }
             }
 
@@ -454,7 +495,13 @@ final class RelayApplication
                         if (($grant['includeTaskUrl'] ?? false) === true) {
                             $additionalPayload['taskUrl'] = (string)$state['taskUrl'];
                         }
-                        return $this->error(502, 'attachmentFailed', 'The task was created but the screencast could not be attached.', $corsHeaders, $additionalPayload);
+                        return $this->asanaError(
+                            $exception,
+                            'attachmentFailed',
+                            'The task was created but the screencast could not be attached.',
+                            $corsHeaders,
+                            $additionalPayload
+                        );
                     }
                     $warnings[] = 'videoUploadFailed';
                 }
@@ -673,5 +720,25 @@ final class RelayApplication
             'errorCode' => $errorCode,
             'message' => $message,
         ] + $additionalPayload);
+    }
+
+    private function asanaError(
+        \Throwable $exception,
+        string $fallbackErrorCode,
+        string $fallbackMessage,
+        array $headers,
+        array $additionalPayload = []
+    ): RelayResponse {
+        if ($exception instanceof AsanaClientException) {
+            return $this->error(
+                $exception->statusCode,
+                $exception->errorCode,
+                $exception->publicMessage,
+                $headers,
+                $additionalPayload
+            );
+        }
+
+        return $this->error(502, $fallbackErrorCode, $fallbackMessage, $headers, $additionalPayload);
     }
 }
