@@ -18,6 +18,18 @@ test('uses the relay error message for the user', () => {
     assert.equal(message, 'The feedback relay has no Asana access token configured.');
 });
 
+test('hides the internal grant preparation message behind a localized notice', () => {
+    const message = messageForSubmissionError({
+        errorCode: 'configuration',
+        message: 'No sufficiently strong feedback service grant secret is configured.',
+    }, {
+        errorGeneric: 'Generic error',
+        errorConfiguration: 'The feedback module is not configured completely. Please contact the website team.',
+    });
+
+    assert.equal(message, 'The feedback module is not configured completely. Please contact the website team.');
+});
+
 test('prepares metadata in Neos and uploads binary files directly to the relay', async () => {
     const calls = [];
     const fetchImpl = async (url, options) => {

@@ -78,12 +78,27 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
     }, [icon('video'), recordingStopLabel]);
     root.append(feedbackButton, overlay, recordingStopButton, toast);
 
+    // pending timeout of the "conceal" animation; tracked so that showing the
+    // overlay again can cancel it. Without this, a submission that fails faster
+    // than the animation (e.g. a 500 from a missing grant secret) would first
+    // reveal the error modal and then get hidden again by the late timeout.
+    let concealTimeout = null;
+
+    function cancelPendingConceal() {
+        if (concealTimeout !== null) {
+            window.clearTimeout(concealTimeout);
+            concealTimeout = null;
+        }
+    }
+
     function showOverlay(...children) {
+        cancelPendingConceal();
         overlay.hidden = false;
         replaceChildren(overlay, ...children);
     }
 
     function hideOverlay() {
+        cancelPendingConceal();
         overlay.hidden = true;
         replaceChildren(overlay);
     }
@@ -93,19 +108,25 @@ export function createFeedbackWidget(config, { floatingButton = true, includeIfr
     }
 
     function revealOverlay() {
+        cancelPendingConceal();
         overlay.hidden = false;
     }
 
     // shrinks the full screen modal away (towards the corner) while uploading
     function concealOverlayAnimated() {
         overlay.classList.add('cqaf-overlay--hiding');
-        window.setTimeout(() => {
+        cancelPendingConceal();
+        concealTimeout = window.setTimeout(() => {
+            concealTimeout = null;
             overlay.hidden = true;
         }, 240);
     }
 
     // brings the modal back full screen, e.g. after an upload error
     function revealOverlayAnimated() {
+        // cancel a still pending conceal so a fast failure does not hide the
+        // modal right after it was brought back for the error message
+        cancelPendingConceal();
         overlay.hidden = false;
         overlay.classList.add('cqaf-overlay--hiding');
         // next frame so the browser animates from the hidden to the shown state

@@ -155,8 +155,11 @@ class FeedbackController extends ActionController
             $this->logger->warning('CodeQ.AsanaFeedback: ' . $exception->getMessage());
             return $this->jsonError(429, 'rateLimit', 'Too many requests, please try again later.');
         } catch (ConfigurationException $exception) {
+            // the detailed cause (e.g. a missing grant secret) is only logged;
+            // the browser receives a stable, non-revealing message and the
+            // widget maps the "configuration" code to a localized notice
             $this->logger->critical('CodeQ.AsanaFeedback: Configuration error: ' . $exception->getMessage());
-            return $this->jsonError(500, 'configuration', $exception->getMessage());
+            return $this->jsonError(500, 'configuration', 'The feedback service is not configured completely.');
         } catch (\Throwable $exception) {
             $this->logger->error('CodeQ.AsanaFeedback: Unexpected grant error: ' . $exception->getMessage(), ['exception' => $exception]);
             return $this->jsonError(500, 'internal', 'An unexpected error occurred.');

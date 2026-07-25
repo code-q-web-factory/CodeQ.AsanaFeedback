@@ -14,12 +14,20 @@ async function parseResponse(response) {
 }
 
 export function messageForSubmissionError(error, labels) {
+    const errorCode = error && error.errorCode;
+
+    // Grant preparation errors from Neos carry an internal, non-localized
+    // message (e.g. a missing grant secret). Never show that to the visitor;
+    // use the localized "please contact the team" notice instead.
+    if (errorCode === 'configuration') {
+        return labels.errorConfiguration;
+    }
+
     const relayMessage = error && typeof error.message === 'string' ? error.message.trim() : '';
     if (relayMessage !== '') {
         return relayMessage;
     }
 
-    const errorCode = error && error.errorCode;
     switch (errorCode) {
         case 'validation':
             return labels.errorValidation;
@@ -27,8 +35,6 @@ export function messageForSubmissionError(error, labels) {
             return labels.fileTooLarge;
         case 'rateLimit':
             return labels.errorRateLimit;
-        case 'configuration':
-            return labels.errorConfiguration;
         case 'attachmentFailed':
             return labels.errorAttachment;
         case 'forbidden':
