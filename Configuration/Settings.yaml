@@ -78,7 +78,7 @@ CodeQ:
 
     media:
       screenshot:
-        mimeTypes: ['image/webp', 'image/jpeg', 'image/png']
+        mimeTypes: ['image/jpeg', 'image/png']
         quality: 0.8
       video:
         width: 1280

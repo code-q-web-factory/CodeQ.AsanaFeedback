@@ -1,10 +1,9 @@
 const DEFAULT_SCREENSHOT_OPTIONS = {
-    mimeTypes: ['image/webp', 'image/jpeg', 'image/png'],
+    mimeTypes: ['image/jpeg', 'image/png'],
     quality: 0.8,
 };
 
 const FILE_EXTENSIONS = {
-    'image/webp': 'webp',
     'image/jpeg': 'jpg',
     'image/png': 'png',
 };
@@ -15,7 +14,7 @@ function encodeCanvas(canvas, mimeType, quality) {
 
 /**
  * Encodes an opaque feedback screenshot in a compact browser-supported
- * format. The capture canvas has a white background, so WebP/JPEG do not
+ * format. The capture canvas has a white background, so JPEG does not
  * discard meaningful transparency. PNG remains the lossless fallback.
  */
 export async function createOptimizedScreenshot(canvas, options = {}) {

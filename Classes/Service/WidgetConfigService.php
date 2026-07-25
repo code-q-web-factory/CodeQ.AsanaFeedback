@@ -90,7 +90,7 @@ class WidgetConfigService
             ],
             'media' => [
                 'screenshot' => [
-                    'mimeTypes' => array_values(array_map('strval', $this->media['screenshot']['mimeTypes'] ?? ['image/webp', 'image/jpeg', 'image/png'])),
+                    'mimeTypes' => array_values(array_map('strval', $this->media['screenshot']['mimeTypes'] ?? ['image/jpeg', 'image/png'])),
                     'quality' => (float)($this->media['screenshot']['quality'] ?? 0.8),
                 ],
                 'video' => [

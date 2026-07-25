@@ -44,8 +44,8 @@ test('prepares metadata in Neos and uploads binary files directly to the relay',
     };
 
     const screenshot = {
-        blob: new Blob(['webp-image'], { type: 'image/webp' }),
-        fileName: 'screenshot.webp',
+        blob: new Blob(['jpeg-image'], { type: 'image/jpeg' }),
+        fileName: 'screenshot.jpg',
     };
     const video = {
         blob: new Blob(['webm-video'], { type: 'video/webm' }),
@@ -76,7 +76,7 @@ test('prepares metadata in Neos and uploads binary files directly to the relay',
     assert.equal(calls[1].options.headers['X-Idempotency-Key'], 'submission-1234');
     assert.equal(calls[1].options.body.get('uploadGrant').type, 'application/vnd.codeq.feedback-grant');
     assert.equal(await calls[1].options.body.get('uploadGrant').text(), 'opaque-upload-token');
-    assert.equal(calls[1].options.body.get('screenshot').type, 'image/webp');
+    assert.equal(calls[1].options.body.get('screenshot').type, 'image/jpeg');
     assert.equal(calls[1].options.body.get('video').type, 'video/webm');
     assert.equal(calls[1].options.headers['Content-Type'], undefined);
 });
@@ -104,13 +104,13 @@ test('submits screenshot-only feedback without adding an empty video part', asyn
         prepareUrl: '/codeq-asana-feedback/prepare',
         submission: { submissionId: 'submission-5678', description: 'Missing label' },
         screenshot: {
-            blob: new Blob(['webp-image'], { type: 'image/webp' }),
-            fileName: 'screenshot.webp',
+            blob: new Blob(['jpeg-image'], { type: 'image/jpeg' }),
+            fileName: 'screenshot.jpg',
         },
         fetchImpl,
     });
 
-    assert.equal(calls[1].options.body.get('screenshot').type, 'image/webp');
+    assert.equal(calls[1].options.body.get('screenshot').type, 'image/jpeg');
     assert.equal(calls[1].options.body.has('video'), false);
 });
 

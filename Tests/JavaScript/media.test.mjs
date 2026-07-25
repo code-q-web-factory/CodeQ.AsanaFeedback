@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { assertFileSize, createOptimizedScreenshot } from '../../Resources/Private/JavaScript/src/media.js';
 
-test('encodes feedback screenshots as WebP at quality 0.8', async () => {
+test('encodes feedback screenshots as JPEG at quality 0.8', async () => {
     const calls = [];
     const canvas = {
         toBlob(callback, mimeType, quality) {
@@ -14,16 +14,16 @@ test('encodes feedback screenshots as WebP at quality 0.8', async () => {
 
     const screenshot = await createOptimizedScreenshot(canvas);
 
-    assert.deepEqual(calls, [{ mimeType: 'image/webp', quality: 0.8 }]);
-    assert.equal(screenshot.blob.type, 'image/webp');
-    assert.equal(screenshot.fileName, 'screenshot.webp');
+    assert.deepEqual(calls, [{ mimeType: 'image/jpeg', quality: 0.8 }]);
+    assert.equal(screenshot.blob.type, 'image/jpeg');
+    assert.equal(screenshot.fileName, 'screenshot.jpg');
 });
 
-test('falls back to PNG when compact canvas encoders are unavailable', async () => {
+test('falls back to PNG when the JPEG encoder is unavailable', async () => {
     const canvas = {
-        toBlob(callback, mimeType) {
-            const actualMimeType = mimeType === 'image/png' ? 'image/png' : 'image/png';
-            callback(new Blob(['fallback'], { type: actualMimeType }));
+        toBlob(callback) {
+            // simulate a browser whose canvas only produces PNG
+            callback(new Blob(['fallback'], { type: 'image/png' }));
         },
     };
 

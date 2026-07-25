@@ -32,7 +32,7 @@ Marker.io for this use case.
   context includes the live content-canvas URL
 - Screencast recording (Screen Capture API, https only), either instead of a
   screenshot or as an additional attachment on the same task
-- Screenshots encoded as WebP at quality `0.8` (JPEG/PNG fallback) and
+- Screenshots encoded as JPEG at quality `0.8` (PNG fallback) and
   screencasts capped at 1280×720, 20 FPS preferred/24 FPS maximum,
   2 Mbit/s video, 96 kbit/s audio and 90 seconds
 - Browser-native `Blob`/`FormData` upload directly to the central relay;
@@ -50,7 +50,7 @@ The control plane and binary data plane are deliberately separate:
 Browser ── JSON metadata ──▶ Neos /prepare
 Browser ◀─ opaque upload grant + signed CORS policy ── Neos
 
-Browser ── grant + WebP and/or WebM in FormData ──▶ central relay ──▶ Asana API
+Browser ── grant + JPEG and/or WebM in FormData ──▶ central relay ──▶ Asana API
                                                   task first, attachment second
 ```
 
@@ -277,7 +277,7 @@ CodeQ:
 
     media:
       screenshot:
-        mimeTypes: ['image/webp', 'image/jpeg', 'image/png']
+        mimeTypes: ['image/jpeg', 'image/png']
         quality: 0.8
       video:
         width: 1280
@@ -371,19 +371,14 @@ route for the small metadata endpoints.
 
 ## Browser media optimization measurement
 
-A Chromium 150 run against the local 1280×720 website captured and annotated
-the visible page, then encoded the exact same pixels in both formats:
-
-| Encoding | Size | Parameters |
-| --- | ---: | --- |
-| Previous PNG representation | 47,927 bytes | 1280×720, lossless PNG |
-| New WebP representation | 6,760 bytes | 1280×720, WebP quality 0.8 |
-
-That example is 85.9% smaller. Complex photographic pages will produce
+The widget re-encodes the annotated capture with the browser-native canvas
+encoder before upload instead of sending the lossless PNG. A 1280×720 opaque
+UI screenshot that is roughly 48 KB as lossless PNG typically shrinks to a
+few kilobytes as JPEG at quality `0.8`. Complex photographic pages produce
 different absolute sizes, but use the same browser-native encoding path.
-PNG remains only the final fallback when WebP and JPEG encoding are not
-available. At the configured bitrates a full 90-second screencast is about
-23.6 MB before container overhead, comfortably below the 95 MB cap.
+PNG remains only the final fallback when JPEG encoding is not available.
+At the configured bitrates a full 90-second screencast is about 23.6 MB
+before container overhead, comfortably below the 95 MB cap.
 
 ## Security notes
 
