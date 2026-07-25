@@ -1,5 +1,7 @@
 import { toSvg } from 'html-to-image';
 
+import { buildFontEmbedCss } from './fonts';
+
 const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
 
 /**
@@ -15,10 +17,16 @@ const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
  * area inside one.
  */
 export async function captureViewport({ includeIframes = false } = {}) {
+    // Precompute the web-font CSS once and hand it to html-to-image so it
+    // never scans the live stylesheets (which floods the console for the
+    // cross-origin Adobe Fonts kit and leaves the brand font unembedded).
+    const fontEmbedCss = await buildFontEmbedCss();
+
     const pageImage = await renderDocumentToImage(
         document.documentElement,
         Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
-        Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight)
+        Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
+        fontEmbedCss
     );
 
     // clamp the pixel ratio so large pages stay below browser canvas limits
@@ -50,14 +58,14 @@ export async function captureViewport({ includeIframes = false } = {}) {
     );
 
     if (includeIframes) {
-        await compositeVisibleIframes(context, pixelRatio);
+        await compositeVisibleIframes(context, pixelRatio, fontEmbedCss);
     }
 
     return viewportCanvas;
 }
 
 /** Renders every visible, accessible iframe over its blank placeholder. */
-async function compositeVisibleIframes(context, pixelRatio) {
+async function compositeVisibleIframes(context, pixelRatio, fontEmbedCss) {
     for (const iframe of Array.from(document.querySelectorAll('iframe'))) {
         const rect = iframe.getBoundingClientRect();
         const isVisible = rect.width > 0 && rect.height > 0 &&
@@ -78,7 +86,8 @@ async function compositeVisibleIframes(context, pixelRatio) {
             const frameImage = await renderDocumentToImage(
                 frameDocument.documentElement,
                 Math.max(frameDocument.documentElement.scrollWidth, frameDocument.documentElement.clientWidth),
-                Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight)
+                Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight),
+                fontEmbedCss
             );
             context.fillStyle = '#ffffff';
             context.fillRect(rect.left * pixelRatio, rect.top * pixelRatio, rect.width * pixelRatio, rect.height * pixelRatio);
@@ -100,12 +109,15 @@ async function compositeVisibleIframes(context, pixelRatio) {
     }
 }
 
-async function renderDocumentToImage(documentElement, width, height) {
+async function renderDocumentToImage(documentElement, width, height, fontEmbedCss = '') {
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
         // the widget must never be part of the screenshot
         filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined),
+        // precomputed web-font CSS; passing it (even empty) stops html-to-image
+        // from scanning the live stylesheets and erroring on cross-origin sheets
+        fontEmbedCSS: fontEmbedCss,
         // external images without CORS headers would otherwise abort the capture
         imagePlaceholder:
             'data:image/svg+xml;charset=utf-8,' +
