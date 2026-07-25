@@ -47,7 +47,7 @@ CodeQ:
     # the only place that holds the real Asana access token; see
     # RemoteService/ and the README for how to set it up.
     feedbackService:
-      endpoint: 'https://docs.codeq.at/asana-feedback/'
+      endpoint: 'https://asana-feedback-widget.codeq.at'
       # Relay-wide secret used to encrypt and sign short-lived upload grants.
       # It is distinct from the Asana access token and never reaches the browser.
       grantSecret: '%env:ASANA_FEEDBACK_GRANT_SECRET%'

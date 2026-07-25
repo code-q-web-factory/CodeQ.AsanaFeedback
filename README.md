@@ -74,7 +74,7 @@ in either HTTP request. The requests carry JSON and binary multipart parts.
 
 The relay must be running before any website can submit feedback. Copy the
 complete contents of `RemoteService/` into a folder on the central server, e.g.
-`docs.codeq.at/asana-feedback/`, then:
+`asana-feedback-widget.codeq.at`, then:
 
 1. Copy `config.example.php` to `config.php` (git-ignored, never committed)
    and fill in:
@@ -141,7 +141,7 @@ complete contents of `RemoteService/` into a folder on the central server, e.g.
 A quick smoke test — a request without a signed CORS policy must return 403:
 
 ```bash
-curl -i -X OPTIONS 'https://docs.codeq.at/asana-feedback/?action=upload&site=ilf-website' \
+curl -i -X OPTIONS 'https://asana-feedback-widget.codeq.at?action=upload&site=ilf-website' \
   -H 'Origin: https://example.com' \
   -H 'Access-Control-Request-Method: POST'
 ```
@@ -176,7 +176,7 @@ followed by `ddev restart`. On Proserver/Beach the variable is set through
 the deployment secret store.
 
 If the relay runs somewhere other than the default
-`https://docs.codeq.at/asana-feedback/`, point the package at it:
+`https://asana-feedback-widget.codeq.at/`, point the package at it:
 
 ```yaml
 # DistributionPackages/Vendor.Site/Configuration/Settings.AsanaFeedback.yaml
@@ -260,7 +260,7 @@ CodeQ:
 
     feedbackService:
       # relay service that holds the actual Asana access token
-      endpoint: 'https://docs.codeq.at/asana-feedback/'
+      endpoint: 'https://asana-feedback-widget.codeq.at/'
       # secret for short-lived encrypted grants; not the Asana token
       grantSecret: '%env:ASANA_FEEDBACK_GRANT_SECRET%'
 
