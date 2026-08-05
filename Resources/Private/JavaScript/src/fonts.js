@@ -23,10 +23,17 @@ const URL_TOKEN = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
 // font files stay stable for a session, so a retake reuses the fetched data
 const dataUrlByFontUrl = new Map();
 
-export async function buildFontEmbedCss() {
+/** Waits for and inlines the font faces available to one rendered document. */
+export async function buildFontEmbedCss(sourceDocument = document) {
+    try {
+        await sourceDocument.fonts?.ready;
+    } catch (fontLoadError) {
+        // Failed font loads must not prevent the remaining document from being captured.
+    }
+
     const inlinedFontFaces = [];
-    for (const styleSheet of Array.from(document.styleSheets)) {
-        const baseHref = styleSheet.href || document.baseURI;
+    for (const styleSheet of Array.from(sourceDocument.styleSheets)) {
+        const baseHref = styleSheet.href || sourceDocument.baseURI;
         for (const fontFaceCss of await readFontFaceTexts(styleSheet)) {
             inlinedFontFaces.push(inlineFontUrls(fontFaceCss, baseHref));
         }

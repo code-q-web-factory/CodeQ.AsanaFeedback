@@ -58,14 +58,14 @@ export async function captureViewport({ includeIframes = false } = {}) {
     );
 
     if (includeIframes) {
-        await compositeVisibleIframes(context, pixelRatio, fontEmbedCss);
+        await compositeVisibleIframes(context, pixelRatio);
     }
 
     return viewportCanvas;
 }
 
 /** Renders every visible, accessible iframe over its blank placeholder. */
-async function compositeVisibleIframes(context, pixelRatio, fontEmbedCss) {
+async function compositeVisibleIframes(context, pixelRatio) {
     for (const iframe of Array.from(document.querySelectorAll('iframe'))) {
         const rect = iframe.getBoundingClientRect();
         const isVisible = rect.width > 0 && rect.height > 0 &&
@@ -83,11 +83,12 @@ async function compositeVisibleIframes(context, pixelRatio, fontEmbedCss) {
 
         try {
             const frameWindow = iframe.contentWindow;
+            const frameFontEmbedCss = await buildFontEmbedCss(frameDocument);
             const frameImage = await renderDocumentToImage(
                 frameDocument.documentElement,
                 Math.max(frameDocument.documentElement.scrollWidth, frameDocument.documentElement.clientWidth),
                 Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight),
-                fontEmbedCss
+                frameFontEmbedCss
             );
             context.fillStyle = '#ffffff';
             context.fillRect(rect.left * pixelRatio, rect.top * pixelRatio, rect.width * pixelRatio, rect.height * pixelRatio);
