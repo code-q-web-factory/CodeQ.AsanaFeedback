@@ -15,6 +15,8 @@ use Neos\Flow\Annotations as Flow;
  */
 class FeedbackHelper implements ProtectedContextAwareInterface
 {
+    private array $assetVersions = [];
+
     /**
      * @Flow\Inject
      * @var WidgetConfigService
@@ -27,6 +29,19 @@ class FeedbackHelper implements ProtectedContextAwareInterface
 
         // HEX flags keep the JSON safe for embedding inside a <script> tag
         return json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
+    }
+
+    public function assetVersion(string $resourceUri): string
+    {
+        if (!isset($this->assetVersions[$resourceUri])) {
+            $hash = sha1_file($resourceUri);
+            if ($hash === false) {
+                throw new \RuntimeException(sprintf('Could not hash feedback widget asset "%s".', $resourceUri));
+            }
+            $this->assetVersions[$resourceUri] = $hash;
+        }
+
+        return $this->assetVersions[$resourceUri];
     }
 
     public function allowsCallOfMethod($methodName): bool

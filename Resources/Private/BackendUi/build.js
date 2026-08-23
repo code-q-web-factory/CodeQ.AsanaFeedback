@@ -10,5 +10,6 @@ esbuild.build({
     entryPoints: { Plugin: 'src/index.js' },
     loader: { '.js': 'jsx' },
     alias: require('@neos-project/neos-ui-extensibility/extensibilityMap.json'),
+    legalComments: 'linked',
     outdir: '../../Public/Backend',
 });

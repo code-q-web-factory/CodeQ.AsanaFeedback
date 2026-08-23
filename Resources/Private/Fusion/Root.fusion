@@ -46,6 +46,8 @@ prototype(CodeQ.AsanaFeedback:Integration.Widget) < prototype(Neos.Fusion:Compon
         format = 'json'
     }
     configJson = ${AsanaFeedback.widgetConfig(String.toString(documentNode.context.targetDimensions.language) || 'en', this.prepareUri)}
+    styleVersion = ${AsanaFeedback.assetVersion('resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css')}
+    scriptVersion = ${AsanaFeedback.assetVersion('resource://CodeQ.AsanaFeedback/Public/Scripts/Widget.js')}
     styleUri = Neos.Fusion:ResourceUri {
         path = 'resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css'
     }
@@ -55,7 +57,7 @@ prototype(CodeQ.AsanaFeedback:Integration.Widget) < prototype(Neos.Fusion:Compon
 
     renderer = afx`
         <script type="application/json" id="codeq-asana-feedback-config">{props.configJson}</script>
-        <link rel="stylesheet" href={props.styleUri} />
-        <script src={props.scriptUri} defer="defer"></script>
+        <link rel="stylesheet" href={props.styleUri + '?bust=' + props.styleVersion} />
+        <script src={props.scriptUri + '?bust=' + props.scriptVersion} defer="defer"></script>
     `
 }
