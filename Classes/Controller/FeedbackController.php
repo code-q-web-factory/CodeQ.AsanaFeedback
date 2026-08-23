@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodeQ\AsanaFeedback\Controller;
 
+use CodeQ\AsanaFeedback\Eel\FeedbackHelper;
 use CodeQ\AsanaFeedback\Exception\ConfigurationException;
 use CodeQ\AsanaFeedback\Exception\TooManyRequestsException;
 use CodeQ\AsanaFeedback\Exception\ValidationException;
@@ -53,6 +54,12 @@ class FeedbackController extends ActionController
 
     /**
      * @Flow\Inject
+     * @var FeedbackHelper
+     */
+    protected $feedbackHelper;
+
+    /**
+     * @Flow\Inject
      * @var UploadGrantService
      */
     protected $uploadGrantService;
@@ -91,7 +98,11 @@ class FeedbackController extends ActionController
             return $this->jsonError(403, 'forbidden', 'The feedback widget is not enabled for frontend visitors.');
         }
 
-        return $this->widgetConfigJson($locale);
+        $prepareUrl = $this->uriBuilder->reset()->setFormat('json')->uriFor('prepare', [], 'Feedback', 'CodeQ.AsanaFeedback');
+        $config = $this->widgetConfigService->buildConfig($locale, $prepareUrl);
+        $config['assets'] = $this->feedbackHelper->frontendAssetUrls();
+
+        return json_encode($config, JSON_THROW_ON_ERROR);
     }
 
     protected function widgetConfigJson(string $locale): string

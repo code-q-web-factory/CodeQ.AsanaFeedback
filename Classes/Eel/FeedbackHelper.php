@@ -15,6 +15,17 @@ use Neos\Flow\Annotations as Flow;
  */
 class FeedbackHelper implements ProtectedContextAwareInterface
 {
+    private const FRONTEND_ASSETS = [
+        'stylesheetUrl' => [
+            'resource' => 'resource://CodeQ.AsanaFeedback/Public/Styles/Widget.css',
+            'publicPath' => '/_Resources/Static/Packages/CodeQ.AsanaFeedback/Styles/Widget.css',
+        ],
+        'scriptUrl' => [
+            'resource' => 'resource://CodeQ.AsanaFeedback/Public/Scripts/Widget.js',
+            'publicPath' => '/_Resources/Static/Packages/CodeQ.AsanaFeedback/Scripts/Widget.js',
+        ],
+    ];
+
     private array $assetVersions = [];
 
     /**
@@ -42,6 +53,20 @@ class FeedbackHelper implements ProtectedContextAwareInterface
         }
 
         return $this->assetVersions[$resourceUri];
+    }
+
+    public function frontendAssetUrls(): array
+    {
+        $urls = [];
+        foreach (self::FRONTEND_ASSETS as $name => $asset) {
+            $urls[$name] = sprintf(
+                '%s?bust=%s',
+                $asset['publicPath'],
+                $this->assetVersion($asset['resource'])
+            );
+        }
+
+        return $urls;
     }
 
     public function allowsCallOfMethod($methodName): bool

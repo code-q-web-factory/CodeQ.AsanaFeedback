@@ -242,8 +242,10 @@ whenever `enableInFrontend` permits the current visitor to use the widget; the
 authenticated backend configuration endpoint remains unchanged.
 
 Embed the returned JSON as the text content of a
-`#codeq-asana-feedback-config` script element, then load
-`Public/Styles/Widget.css` and `Public/Scripts/Widget.js`. Hosts whose visible
+`#codeq-asana-feedback-config` script element, then load the versioned URLs in
+`assets.stylesheetUrl` and `assets.scriptUrl`. Do not construct the public asset
+paths in the host application: static Neos resources can be cached for a long
+time and need the content hash returned by the endpoint. Hosts whose visible
 content lives in same-origin iframes can add
 `data-include-iframes="true"` to the configuration element so the iframe
 content is composited into the screenshot.

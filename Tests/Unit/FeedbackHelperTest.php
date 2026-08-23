@@ -22,4 +22,25 @@ final class FeedbackHelperTest extends TestCase
             unlink($asset);
         }
     }
+
+    /** @test */
+    public function itReturnsVersionedFrontendAssetUrls(): void
+    {
+        $helper = new class () extends FeedbackHelper {
+            public function assetVersion(string $resourceUri): string
+            {
+                return sha1($resourceUri);
+            }
+        };
+        $urls = $helper->frontendAssetUrls();
+
+        self::assertMatchesRegularExpression(
+            '#^/_Resources/Static/Packages/CodeQ\.AsanaFeedback/Styles/Widget\.css\?bust=[a-f0-9]{40}$#',
+            $urls['stylesheetUrl']
+        );
+        self::assertMatchesRegularExpression(
+            '#^/_Resources/Static/Packages/CodeQ\.AsanaFeedback/Scripts/Widget\.js\?bust=[a-f0-9]{40}$#',
+            $urls['scriptUrl']
+        );
+    }
 }
