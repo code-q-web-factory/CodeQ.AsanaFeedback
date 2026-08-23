@@ -17,24 +17,25 @@ const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
  * area inside one.
  */
 export async function captureViewport({ includeIframes = false } = {}) {
-    // Precompute the web-font CSS once and hand it to html-to-image so it
-    // never scans the live stylesheets (which floods the console for the
-    // cross-origin Adobe Fonts kit and leaves the brand font unembedded).
-    const fontEmbedCss = await buildFontEmbedCss();
-
-    const pageImage = await renderDocument(
-        document.documentElement,
-        Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
-        Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
-        fontEmbedCss
-    );
-
     // clamp the pixel ratio so large pages stay below browser canvas limits
     let pixelRatio = window.devicePixelRatio || 1;
     const maximumCanvasArea = 200000000;
     if (window.innerWidth * window.innerHeight * pixelRatio * pixelRatio > maximumCanvasArea) {
         pixelRatio = 1;
     }
+
+    // Precompute the web-font CSS once and hand it to html-to-image so it
+    // never scans the live stylesheets (which floods the console for the
+    // cross-origin Adobe Fonts kit and leaves the brand font unembedded).
+    const fontEmbedCss = await buildFontEmbedCss();
+
+    const pageRender = await renderDocument(
+        document.documentElement,
+        Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
+        Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
+        fontEmbedCss,
+        pixelRatio
+    );
 
     const viewportCanvas = document.createElement('canvas');
     viewportCanvas.width = Math.round(window.innerWidth * pixelRatio);
@@ -43,14 +44,14 @@ export async function captureViewport({ includeIframes = false } = {}) {
     const context = viewportCanvas.getContext('2d');
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, viewportCanvas.width, viewportCanvas.height);
-    // source coordinates are CSS pixels of the SVG, the vector content is
-    // rasterized sharply at the scaled target size
+    // Source coordinates follow the renderer's scale. The target canvas is
+    // device-pixel sized, so text and icons are never upscaled from a 1x bitmap.
     context.drawImage(
-        pageImage,
-        Math.round(window.scrollX),
-        Math.round(window.scrollY),
-        window.innerWidth,
-        window.innerHeight,
+        pageRender.image,
+        Math.round(window.scrollX * pageRender.scale),
+        Math.round(window.scrollY * pageRender.scale),
+        window.innerWidth * pageRender.scale,
+        window.innerHeight * pageRender.scale,
         0,
         0,
         viewportCanvas.width,
@@ -84,20 +85,21 @@ async function compositeVisibleIframes(context, pixelRatio) {
         try {
             const frameWindow = iframe.contentWindow;
             const frameFontEmbedCss = await buildFontEmbedCss(frameDocument);
-            const frameImage = await renderDocument(
+            const frameRender = await renderDocument(
                 frameDocument.documentElement,
                 Math.max(frameDocument.documentElement.scrollWidth, frameDocument.documentElement.clientWidth),
                 Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight),
-                frameFontEmbedCss
+                frameFontEmbedCss,
+                pixelRatio
             );
             context.fillStyle = '#ffffff';
             context.fillRect(rect.left * pixelRatio, rect.top * pixelRatio, rect.width * pixelRatio, rect.height * pixelRatio);
             context.drawImage(
-                frameImage,
-                Math.round(frameWindow.scrollX),
-                Math.round(frameWindow.scrollY),
-                rect.width,
-                rect.height,
+                frameRender.image,
+                Math.round(frameWindow.scrollX * frameRender.scale),
+                Math.round(frameWindow.scrollY * frameRender.scale),
+                rect.width * frameRender.scale,
+                rect.height * frameRender.scale,
                 Math.round(rect.left * pixelRatio),
                 Math.round(rect.top * pixelRatio),
                 Math.round(rect.width * pixelRatio),
@@ -110,12 +112,12 @@ async function compositeVisibleIframes(context, pixelRatio) {
     }
 }
 
-async function renderDocument(documentElement, width, height, fontEmbedCss = '') {
+async function renderDocument(documentElement, width, height, fontEmbedCss = '', scale = 1) {
     if (fontEmbedCss) {
-        return renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss);
+        return renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss, scale);
     }
 
-    return renderDocumentToImage(documentElement, width, height);
+    return { image: await renderDocumentToImage(documentElement, width, height), scale: 1 };
 }
 
 /**
@@ -123,23 +125,24 @@ async function renderDocument(documentElement, width, height, fontEmbedCss = '')
  * is rasterized. Render documents containing web fonts directly to canvas so
  * text metrics and line breaks match the live page.
  */
-async function renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss) {
+async function renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss, scale) {
     const sourceDocument = documentElement.ownerDocument;
     const embeddedFonts = sourceDocument.createElement('style');
     embeddedFonts.dataset.codeqFeedbackFonts = '';
-    embeddedFonts.textContent = fontEmbedCss;
+    embeddedFonts.textContent = `${fontEmbedCss}\n*:not(svg):not(svg *) { letter-spacing: 0.0001px !important; }`;
     sourceDocument.head.appendChild(embeddedFonts);
 
     try {
-        return await html2canvas(documentElement, {
+        const image = await html2canvas(documentElement, {
             width,
             height,
-            scale: 1,
+            scale,
             backgroundColor: '#ffffff',
             logging: false,
             useCORS: true,
             ignoreElements: (node) => node.dataset && node.dataset.codeqFeedback !== undefined,
         });
+        return { image, scale };
     } finally {
         embeddedFonts.remove();
     }
