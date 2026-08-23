@@ -1,6 +1,5 @@
 /**
- * Builds the `fontEmbedCSS` string handed to html-to-image so the library
- * does not scan the live stylesheets itself.
+ * Builds embedded @font-face CSS for the document capture renderer.
  *
  * html-to-image otherwise reads `cssRules` of every stylesheet to collect
  * @font-face rules. Cross-origin sheets — here the Adobe Fonts (Typekit) kit
@@ -12,7 +11,7 @@
  * The kit CSS and its font files are served with Access-Control-Allow-Origin,
  * so we can read what same-origin rules expose directly and fetch the
  * cross-origin @font-face rules over CORS ourselves, inlining every font file
- * as a data URI so the rasterized SVG shows the real typeface. The @import
+ * as a data URI so the cloned document uses the real typeface. The @import
  * tracking beacon is left out on purpose. Anything unreachable (e.g. blocked
  * by an ad blocker or lacking CORS headers) is skipped silently.
  */

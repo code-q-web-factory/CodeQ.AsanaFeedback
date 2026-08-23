@@ -1,15 +1,15 @@
 import { toSvg } from 'html-to-image';
+import html2canvas from 'html2canvas';
 
 import { buildFontEmbedCss } from './fonts';
 
 const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
 
 /**
- * Captures the currently visible viewport as a canvas. The whole document
- * is rendered DOM-based via html-to-image into an SVG, sanitized (see
- * below), rasterized and then cropped to the visible area. Elements
- * carrying a data-codeq-feedback attribute (the widget itself) are
- * excluded through the render filter.
+ * Captures the currently visible viewport as a canvas. Documents with web
+ * fonts are rendered directly to canvas; other documents use a sanitized
+ * html-to-image SVG (see below). Elements carrying a data-codeq-feedback
+ * attribute (the widget itself) are excluded from both render paths.
  *
  * With "includeIframes" the visible same-origin iframes are rendered
  * separately and composited into the result — SVG foreignObject rendering
@@ -22,7 +22,7 @@ export async function captureViewport({ includeIframes = false } = {}) {
     // cross-origin Adobe Fonts kit and leaves the brand font unembedded).
     const fontEmbedCss = await buildFontEmbedCss();
 
-    const pageImage = await renderDocumentToImage(
+    const pageImage = await renderDocument(
         document.documentElement,
         Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
         Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
@@ -84,7 +84,7 @@ async function compositeVisibleIframes(context, pixelRatio) {
         try {
             const frameWindow = iframe.contentWindow;
             const frameFontEmbedCss = await buildFontEmbedCss(frameDocument);
-            const frameImage = await renderDocumentToImage(
+            const frameImage = await renderDocument(
                 frameDocument.documentElement,
                 Math.max(frameDocument.documentElement.scrollWidth, frameDocument.documentElement.clientWidth),
                 Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight),
@@ -110,7 +110,42 @@ async function compositeVisibleIframes(context, pixelRatio) {
     }
 }
 
-async function renderDocumentToImage(documentElement, width, height, fontEmbedCss = '') {
+async function renderDocument(documentElement, width, height, fontEmbedCss = '') {
+    if (fontEmbedCss) {
+        return renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss);
+    }
+
+    return renderDocumentToImage(documentElement, width, height);
+}
+
+/**
+ * Browsers do not reliably use embedded web fonts when an SVG foreignObject
+ * is rasterized. Render documents containing web fonts directly to canvas so
+ * text metrics and line breaks match the live page.
+ */
+async function renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss) {
+    const sourceDocument = documentElement.ownerDocument;
+    const embeddedFonts = sourceDocument.createElement('style');
+    embeddedFonts.dataset.codeqFeedbackFonts = '';
+    embeddedFonts.textContent = fontEmbedCss;
+    sourceDocument.head.appendChild(embeddedFonts);
+
+    try {
+        return await html2canvas(documentElement, {
+            width,
+            height,
+            scale: 1,
+            backgroundColor: '#ffffff',
+            logging: false,
+            useCORS: true,
+            ignoreElements: (node) => node.dataset && node.dataset.codeqFeedback !== undefined,
+        });
+    } finally {
+        embeddedFonts.remove();
+    }
+}
+
+async function renderDocumentToImage(documentElement, width, height) {
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -118,7 +153,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined),
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
-        fontEmbedCSS: fontEmbedCss,
+        fontEmbedCSS: '',
         // external images without CORS headers would otherwise abort the capture
         imagePlaceholder:
             'data:image/svg+xml;charset=utf-8,' +
