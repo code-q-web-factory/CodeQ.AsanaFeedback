@@ -61,6 +61,16 @@ test('captures iframe text with the web font used by the live document', { timeo
             await route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' });
             return;
         }
+        if (pathname === '/image.svg') {
+            const variant = new URL(route.request().url()).searchParams.get('variant');
+            await route.fulfill({
+                contentType: 'image/svg+xml',
+                body: variant === 'decoy'
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="160"><rect width="400" height="160" fill="#20c040"/></svg>`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="160"><rect width="200" height="160" fill="#e02020"/><rect x="200" width="200" height="160" fill="#2040e0"/></svg>`,
+            });
+            return;
+        }
         if (pathname === '/frame') {
             await route.fulfill({
                 contentType: 'text/html',
@@ -81,9 +91,19 @@ test('captures iframe text with the web font used by the live document', { timeo
                             color: black;
                             font: 400 20px/30px 'Capture Probe', sans-serif;
                         }
+                        #portrait {
+                            position: absolute;
+                            left: 600px;
+                            top: 20px;
+                            width: 100px;
+                            height: 160px;
+                            object-fit: cover;
+                            object-position: right center;
+                        }
                     </style>
                     <span id="target">Business Areas</span>
-                    <span id="sentence">ILF Consulting Engineers was founded by Pius Lasser in 1967.</span>`,
+                    <span id="sentence">ILF Consulting Engineers was founded by Pius Lasser in 1967.</span>
+                    <img id="portrait" alt="" src="/image.svg?variant=portrait">`,
             });
             return;
         }
@@ -168,13 +188,38 @@ test('captures iframe text with the web font used by the live document', { timeo
                 }
                 return count;
             });
-            return { darkPixels, spaceDarkPixels };
+            const portraitPixel = Array.from(context.getImageData(
+                625 * deviceScaleFactor,
+                100 * deviceScaleFactor,
+                1,
+                1
+            ).data);
+            const portrait = document.querySelector('iframe').contentDocument.querySelector('#portrait');
+            const imageLoaded = new Promise((resolve) => { portrait.onload = resolve; });
+            portrait.src = '/image.svg?variant=decoy';
+            await imageLoaded;
+            const secondCanvas = await window.captureViewport({ includeIframes: true });
+            const cacheProbePixel = Array.from(secondCanvas.getContext('2d').getImageData(
+                625 * deviceScaleFactor,
+                100 * deviceScaleFactor,
+                1,
+                1
+            ).data);
+            return { darkPixels, spaceDarkPixels, portraitPixel, cacheProbePixel };
         }, { target, deviceScaleFactor });
 
         assert.equal(captureResult.darkPixels, 0, 'captured text wrapped because the web font was replaced');
         assert.ok(
             captureResult.spaceDarkPixels.every((count) => count <= 8),
             `captured words overlap their spaces: ${captureResult.spaceDarkPixels.join(', ')}`
+        );
+        assert.ok(
+            captureResult.portraitPixel[2] > 180 && captureResult.portraitPixel[0] < 80,
+            `captured image ignored object-fit/object-position: ${captureResult.portraitPixel.join(', ')}`
+        );
+        assert.ok(
+            captureResult.cacheProbePixel[1] > 160 && captureResult.cacheProbePixel[2] < 100,
+            `captured images with distinct query strings shared a cache entry: ${captureResult.cacheProbePixel.join(', ')}`
         );
     } finally {
         await browser.close();

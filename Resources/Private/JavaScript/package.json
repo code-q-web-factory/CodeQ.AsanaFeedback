@@ -9,8 +9,7 @@
   },
   "dependencies": {
     "fabric": "^6.7.0",
-    "html-to-image": "^1.11.13",
-    "html2canvas": "^1.4.1"
+    "html-to-image": "^1.11.13"
   },
   "devDependencies": {
     "@fontsource/roboto-condensed": "^5.3.0",

@@ -13,8 +13,11 @@ test('ships the current capture renderer in both widget bundles', async () => {
         readFile(backendBundle, 'utf8'),
     ]);
 
-    assert.match(frontend, /codeqFeedbackFonts/);
-    assert.match(backend, /codeqFeedbackFonts/);
+    for (const bundle of [frontend, backend]) {
+        assert.match(bundle, /fontEmbedCSS/);
+        assert.match(bundle, /foreignObject/);
+        assert.doesNotMatch(bundle, /html2canvas/);
+    }
 });
 
 test('cache-busts public widget assets with their content hashes', async () => {

@@ -1,15 +1,14 @@
 import { toSvg } from 'html-to-image';
-import html2canvas from 'html2canvas';
 
 import { buildFontEmbedCss } from './fonts';
 
 const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
 
 /**
- * Captures the currently visible viewport as a canvas. Documents with web
- * fonts are rendered directly to canvas; other documents use a sanitized
- * html-to-image SVG (see below). Elements carrying a data-codeq-feedback
- * attribute (the widget itself) are excluded from both render paths.
+ * Captures the currently visible viewport as a canvas through a sanitized
+ * html-to-image SVG. Web fonts are embedded before rendering so the browser
+ * keeps the live document's text and image layout. Elements carrying a
+ * data-codeq-feedback attribute (the widget itself) are excluded.
  *
  * With "includeIframes" the visible same-origin iframes are rendered
  * separately and composited into the result — SVG foreignObject rendering
@@ -33,8 +32,7 @@ export async function captureViewport({ includeIframes = false } = {}) {
         document.documentElement,
         Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
         Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
-        fontEmbedCss,
-        pixelRatio
+        fontEmbedCss
     );
 
     const viewportCanvas = document.createElement('canvas');
@@ -89,8 +87,7 @@ async function compositeVisibleIframes(context, pixelRatio) {
                 frameDocument.documentElement,
                 Math.max(frameDocument.documentElement.scrollWidth, frameDocument.documentElement.clientWidth),
                 Math.max(frameDocument.documentElement.scrollHeight, frameDocument.documentElement.clientHeight),
-                frameFontEmbedCss,
-                pixelRatio
+                frameFontEmbedCss
             );
             context.fillStyle = '#ffffff';
             context.fillRect(rect.left * pixelRatio, rect.top * pixelRatio, rect.width * pixelRatio, rect.height * pixelRatio);
@@ -112,43 +109,11 @@ async function compositeVisibleIframes(context, pixelRatio) {
     }
 }
 
-async function renderDocument(documentElement, width, height, fontEmbedCss = '', scale = 1) {
-    if (fontEmbedCss) {
-        return renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss, scale);
-    }
-
-    return { image: await renderDocumentToImage(documentElement, width, height), scale: 1 };
+async function renderDocument(documentElement, width, height, fontEmbedCss = '') {
+    return { image: await renderDocumentToImage(documentElement, width, height, fontEmbedCss), scale: 1 };
 }
 
-/**
- * Browsers do not reliably use embedded web fonts when an SVG foreignObject
- * is rasterized. Render documents containing web fonts directly to canvas so
- * text metrics and line breaks match the live page.
- */
-async function renderDocumentWithWebFonts(documentElement, width, height, fontEmbedCss, scale) {
-    const sourceDocument = documentElement.ownerDocument;
-    const embeddedFonts = sourceDocument.createElement('style');
-    embeddedFonts.dataset.codeqFeedbackFonts = '';
-    embeddedFonts.textContent = `${fontEmbedCss}\n*:not(svg):not(svg *) { letter-spacing: 0.0001px !important; }`;
-    sourceDocument.head.appendChild(embeddedFonts);
-
-    try {
-        const image = await html2canvas(documentElement, {
-            width,
-            height,
-            scale,
-            backgroundColor: '#ffffff',
-            logging: false,
-            useCORS: true,
-            ignoreElements: (node) => node.dataset && node.dataset.codeqFeedback !== undefined,
-        });
-        return { image, scale };
-    } finally {
-        embeddedFonts.remove();
-    }
-}
-
-async function renderDocumentToImage(documentElement, width, height) {
+async function renderDocumentToImage(documentElement, width, height, fontEmbedCss) {
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -156,11 +121,15 @@ async function renderDocumentToImage(documentElement, width, height) {
         filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined),
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
-        fontEmbedCSS: '',
+        fontEmbedCSS: fontEmbedCss,
         // external images without CORS headers would otherwise abort the capture
         imagePlaceholder:
             'data:image/svg+xml;charset=utf-8,' +
             encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="#dddddd"/></svg>'),
+        // Next.js serves every optimized image through /_next/image and uses
+        // only the query string to identify the source. Stripping it makes
+        // unrelated images share one html-to-image cache entry.
+        includeQueryParams: true,
     });
 
     const sanitizedMarkup = sanitizeSvgMarkup(decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)));
