@@ -16,6 +16,78 @@ const fontFile = resolve(
     'node_modules/@fontsource/roboto-condensed/files/roboto-condensed-latin-400-normal.woff2'
 );
 
+for (const includeIframes of [false, true]) {
+    test(`preserves page icons with ElevenReader injected (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+        const bundle = await build({
+            absWorkingDir: widgetDirectory,
+            bundle: true,
+            format: 'iife',
+            platform: 'browser',
+            stdin: {
+                contents: `import { captureViewport } from ${JSON.stringify(captureModule)}; window.captureViewport = captureViewport;`,
+                resolveDir: widgetDirectory,
+            },
+            write: false,
+        });
+        const browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 320, height: 200 } });
+        try {
+            const fixture = `<!doctype html><style>
+                body { margin: 0; background: white; font-size: 14px; }
+                svg { display: inline-block; height: 1em; overflow: visible; }
+            </style><svg data-icon="fixture" viewBox="0 0 448 512"><path fill="#e02020" d="M0 0H448V512H0Z"/></svg>`;
+            await page.setContent(includeIframes
+                ? '<style>body { margin: 0; } iframe { border: 0; width: 320px; height: 200px; }</style><iframe></iframe>'
+                : fixture);
+            const target = includeIframes ? page.frames()[1] : page;
+            if (includeIframes) {
+                await target.setContent(fixture);
+            }
+            await target.evaluate(() => {
+                const extension = document.createElement('div');
+                extension.id = 'elevenreader-extension-container';
+                // Actual ElevenReader rule: isolated in the page, global when
+                // html-to-image flattens the extension's shadow root.
+                extension.attachShadow({ mode: 'open' }).innerHTML =
+                    '<style>[data-icon],[data-icon]>*{width:36px!important;height:36px!important}</style>';
+                document.body.append(extension);
+                const component = document.createElement('site-component');
+                component.attachShadow({ mode: 'open' }).innerHTML =
+                    '<style>#component-path { fill: #2040e0; }</style><svg style="position:absolute;left:80px;top:20px;width:20px;height:20px" viewBox="0 0 20 20"><path id="component-path" d="M0 0H20V20H0Z"/></svg>';
+                document.body.append(component);
+            });
+            const original = await target.locator('svg[data-icon]').boundingBox();
+            await page.addScriptTag({ content: bundle.outputFiles[0].text });
+            const result = await page.evaluate(async (includeIframes) => {
+                const canvas = await window.captureViewport({ includeIframes });
+                const context = canvas.getContext('2d');
+                const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                let right = -1;
+                let bottom = -1;
+                for (let y = 0; y < canvas.height; y += 1) {
+                    for (let x = 0; x < canvas.width; x += 1) {
+                        const offset = (y * canvas.width + x) * 4;
+                        if (pixels[offset] > 160 && pixels[offset + 1] < 80 && pixels[offset + 2] < 80) {
+                            right = Math.max(right, x);
+                            bottom = Math.max(bottom, y);
+                        }
+                    }
+                }
+                return { right, bottom, componentPixel: Array.from(context.getImageData(180, 60, 1, 1).data) };
+            }, includeIframes);
+            assert.ok(result.right >= 0, 'page icon must remain visible');
+            assert.ok(result.right < (original.x + original.width) * 2 + 1,
+                `captured icon extends to x=${result.right}, live right=${(original.x + original.width) * 2}`);
+            assert.ok(result.bottom < (original.y + original.height) * 2 + 1,
+                `captured icon extends to y=${result.bottom}, live bottom=${(original.y + original.height) * 2}`);
+            assert.deepEqual(result.componentPixel, [32, 64, 224, 255], 'site shadow content must keep its styles');
+            assert.deepEqual(await target.locator('svg[data-icon]').boundingBox(), original, 'capture must not change the live icon');
+        } finally {
+            await browser.close();
+        }
+    });
+}
+
 test('captures iframe text with the web font used by the live document', { timeout: 15000 }, async () => {
     const bundle = await build({
         absWorkingDir: widgetDirectory,

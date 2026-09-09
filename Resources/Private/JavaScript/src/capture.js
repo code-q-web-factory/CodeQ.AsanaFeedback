@@ -117,8 +117,12 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
-        // the widget must never be part of the screenshot
-        filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined),
+        // Exclude feedback and browser-extension UI. html-to-image flattens
+        // shadow roots: ElevenReader's [data-icon] !important rule would then
+        // resize Neos icons to 36px. Keep the extension's entire subtree out
+        // rather than stripping styles needed by the site's web components.
+        filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
+            node.id !== 'elevenreader-extension-container',
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
         fontEmbedCSS: fontEmbedCss,
