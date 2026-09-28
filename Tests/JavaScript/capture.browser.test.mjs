@@ -297,3 +297,44 @@ test('captures iframe text with the web font used by the live document', { timeo
         await browser.close();
     }
 });
+
+for (const inFlow of [false, true]) {
+    test(`keeps iframe content out of the backend sidebar (${inFlow ? 'in-flow' : 'positioned'})`, { timeout: 15000 }, async () => {
+        const bundle = await build({
+            absWorkingDir: widgetDirectory, bundle: true, format: 'iife', platform: 'browser',
+            stdin: {
+                contents: `import { captureViewport } from ${JSON.stringify(captureModule)}; window.captureViewport = captureViewport;`,
+                resolveDir: widgetDirectory,
+            },
+            write: false,
+        });
+        const browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage({ viewport: { width: 640, height: 400 } });
+        try {
+            await page.setContent(`<!doctype html><style>
+                html, body { margin: 0; background: #2040e0; }
+                main { ${inFlow ? 'margin-left: 160px; padding-top: 40px;' : 'position: absolute; left: 160px; top: 40px;'} width: 320px; }
+                iframe { display: block; width: 320px; height: 300px; border: 0; }
+                footer { height: 40px; background: #20c040; }
+            </style><main><iframe></iframe><footer></footer></main>`);
+            await page.frames()[1].setContent(`<!doctype html><style>
+                html, body { margin: 0; background: #333; height: 100%; }
+                #shortcut { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: #333; display: flex; align-items: center; justify-content: center; }
+                #marker { width: 40px; height: 40px; background: #e02020; }
+            </style><div id="shortcut"><div id="marker"></div></div>`);
+            await page.addScriptTag({ content: bundle.outputFiles[0].text });
+            const result = await page.evaluate(async () => {
+                const canvas = await window.captureViewport({ includeIframes: true });
+                const ctx = canvas.getContext('2d');
+                const pixel = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data);
+                return { sidebar: pixel(20, 100), frame: pixel(180, 100), marker: pixel(320, 190), footer: pixel(170, 350) };
+            });
+            assert.deepEqual(result.sidebar, [32, 64, 224, 255], 'iframe capture must not paint over the sidebar');
+            assert.deepEqual(result.frame, [51, 51, 51, 255], 'iframe background stays inside its viewport');
+            assert.deepEqual(result.footer, [32, 192, 64, 255], 'the iframe shell must preserve the position of following content');
+            assert.deepEqual(result.marker, [224, 32, 32, 255], 'iframe content stays at its visible position');
+        } finally {
+            await browser.close();
+        }
+    });
+}

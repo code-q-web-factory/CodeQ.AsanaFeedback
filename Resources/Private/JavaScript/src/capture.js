@@ -11,9 +11,9 @@ const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
  * data-codeq-feedback attribute (the widget itself) are excluded.
  *
  * With "includeIframes" the visible same-origin iframes are rendered
- * separately and composited into the result — SVG foreignObject rendering
- * leaves iframes blank, but the Neos backend draws its whole content
- * area inside one.
+ * separately and composited into the result. Their contents must not also
+ * be flattened into the parent document, where fixed elements would use
+ * the backend viewport instead of the iframe viewport.
  */
 export async function captureViewport({ includeIframes = false } = {}) {
     // clamp the pixel ratio so large pages stay below browser canvas limits
@@ -32,7 +32,8 @@ export async function captureViewport({ includeIframes = false } = {}) {
         document.documentElement,
         Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
         Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
-        fontEmbedCss
+        fontEmbedCss,
+        includeIframes
     );
 
     const viewportCanvas = document.createElement('canvas');
@@ -109,11 +110,11 @@ async function compositeVisibleIframes(context, pixelRatio) {
     }
 }
 
-async function renderDocument(documentElement, width, height, fontEmbedCss = '') {
-    return { image: await renderDocumentToImage(documentElement, width, height, fontEmbedCss), scale: 1 };
+async function renderDocument(documentElement, width, height, fontEmbedCss = '', excludeIframeContents = false) {
+    return { image: await renderDocumentToImage(documentElement, width, height, fontEmbedCss, excludeIframeContents), scale: 1 };
 }
 
-async function renderDocumentToImage(documentElement, width, height, fontEmbedCss) {
+async function renderDocumentToImage(documentElement, width, height, fontEmbedCss, excludeIframeContents) {
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -121,7 +122,11 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         // shadow roots: ElevenReader's [data-icon] !important rule would then
         // resize Neos icons to 36px. Keep the extension's entire subtree out
         // rather than stripping styles needed by the site's web components.
-        filter: (node) => !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
+        // Keep the iframe's sized shell in the layout, but leave its foreign
+        // document's descendants to compositeVisibleIframes. html-to-image
+        // otherwise clones them into the parent, leaking fixed elements and CSS.
+        filter: (node) => (!excludeIframeContents || node.ownerDocument === documentElement.ownerDocument) &&
+            !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
             node.id !== 'elevenreader-extension-container',
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
