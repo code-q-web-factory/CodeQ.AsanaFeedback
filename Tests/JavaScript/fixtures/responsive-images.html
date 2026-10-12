@@ -3,7 +3,9 @@
 <head><meta charset="utf-8"><title>Responsive image capture regression</title></head>
 <body style="margin:0;background:white">
 <div id="fixture" style="width:320px;height:200px;position:relative;background:white">
-    <style>.inline-color { fill: rgb(224, 128, 32); }</style>
+    <video src="/missing-video.mp4" style="display:none" muted></video>
+    <style>.inline-color { fill: rgb(224, 128, 32); } .zero-font { font-size: 0; }</style>
+    <span class="zero-font" style="position:absolute;left:170px;top:5px">Hidden icon label</span>
     <svg viewBox="0 0 20 20" style="position:absolute;left:120px;top:100px;width:20px;height:20px"><rect class="inline-color" width="20" height="20"/></svg>
     <noscript><iframe src="/tracking" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div style="position:absolute;left:10px;top:10px;width:20px;height:20px;background:rgb(224,32,32)"></div>

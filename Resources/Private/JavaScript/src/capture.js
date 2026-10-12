@@ -120,6 +120,7 @@ async function renderDocument(documentElement, width, height, fontEmbedCss = '',
 async function renderDocumentToImage(documentElement, width, height, fontEmbedCss, excludeIframeContents) {
     const objectImages = captureObjectImages(documentElement);
     const svgStyles = captureSvgStyles(documentElement);
+    const zeroFontSelectors = captureZeroFontSelectors(documentElement);
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -134,6 +135,8 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         filter: (node) => (!excludeIframeContents || node.ownerDocument === documentElement.ownerDocument) &&
             !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
             node.nodeName !== 'NOSCRIPT' &&
+            // A zero-sized video produces an invalid data:, image in html-to-image.
+            (node.nodeName !== 'VIDEO' || (node.clientWidth > 0 && node.clientHeight > 0)) &&
             node.id !== 'elevenreader-extension-container',
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
@@ -161,7 +164,8 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
     });
 
     const sanitizedMarkup = await sanitizeSvgMarkup(
-        decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI, objectImages, svgStyles
+        decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI,
+        objectImages, svgStyles, zeroFontSelectors
     );
 
     return loadImage(SVG_DATA_URL_PREFIX + encodeURIComponent(sanitizedMarkup));
@@ -219,7 +223,22 @@ function captureSvgStyles(documentElement) {
     return snapshots;
 }
 
-async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles) {
+/** html-to-image rounds 0px to an invalid negative font size, exposing icon labels. */
+function captureZeroFontSelectors(documentElement) {
+    const selectors = new Set();
+    const view = documentElement.ownerDocument.defaultView;
+    for (const element of documentElement.querySelectorAll('*')) {
+        if (view.getComputedStyle(element).fontSize !== '0px') continue;
+        let selector = element.localName;
+        if (element.id) selector += `#${CSS.escape(element.id)}`;
+        else selector += Array.from(element.classList).map(name => `.${CSS.escape(name)}`).join('');
+        if (Array.from(documentElement.querySelectorAll(selector))
+            .every(match => view.getComputedStyle(match).fontSize === '0px')) selectors.add(selector);
+    }
+    return selectors;
+}
+
+async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, zeroFontSelectors) {
     // Legacy rich text can contain control characters that XML cannot represent.
     let sanitizedMarkup = svgMarkup.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
         .replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
@@ -233,6 +252,9 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles) {
 
     // Responsive sources must not override the embedded img inside the SVG.
     if (!parsed.querySelector('parsererror')) {
+        for (const selector of zeroFontSelectors) {
+            parsed.querySelectorAll(selector).forEach(element => element.style?.setProperty('font-size', '0px'));
+        }
         for (const svg of parsed.querySelectorAll('foreignObject svg')) {
             const styles = svgStyles.get(svgStyleKey(svg))?.shift();
             const elements = Array.from(svg.querySelectorAll('*'));

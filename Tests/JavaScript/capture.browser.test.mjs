@@ -39,6 +39,8 @@ for (const includeIframes of [false, true]) {
                     await route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' });
                 } else if (pathname === '/missing.svg') {
                     await route.fulfill({ status: 404, body: 'Missing image' });
+                } else if (pathname === '/missing-video.mp4') {
+                    await route.fulfill({ status: 404, body: 'Missing video', contentType: 'video/mp4' });
                 } else if (pathname === '/blue.svg') {
                     await route.fulfill({
                         contentType: 'image/svg+xml',
