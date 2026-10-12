@@ -3,6 +3,7 @@
 <head><meta charset="utf-8"><title>Responsive image capture regression</title></head>
 <body style="margin:0;background:white">
 <div id="fixture" style="width:320px;height:200px;position:relative;background:white">
+    <noscript><iframe src="/tracking" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div style="position:absolute;left:10px;top:10px;width:20px;height:20px;background:rgb(224,32,32)"></div>
     <picture style="position:absolute;left:40px;top:60px">
         <source srcset="/missing.svg">
@@ -39,11 +40,16 @@ document.querySelector('#run').onclick = async () => {
         const pixel = (x, y) => Array.from(canvas.getContext('2d').getImageData(
             Math.round(x * ratio), Math.round(y * ratio), 1, 1
         ).data).join(',');
+        const region = canvas.getContext('2d').getImageData(
+            Math.round(140 * ratio), 0, Math.round(120 * ratio), Math.round(55 * ratio)
+        ).data;
+        const hiddenFallback = Array.from(region).every(value => value === 255);
         const checks = [
             pixel(20, 20) === '224,32,32,255',
             pixel(50, 70) === '221,221,221,255',
             pixel(90, 70) === '32,64,224,255',
             image.parentElement.outerHTML === originalMarkup,
+            hiddenFallback,
         ];
         output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
     } catch (error) {

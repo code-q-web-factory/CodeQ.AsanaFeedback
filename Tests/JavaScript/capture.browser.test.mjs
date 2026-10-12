@@ -17,7 +17,7 @@ const fontFile = resolve(
 );
 
 for (const includeIframes of [false, true]) {
-    test(`keeps missing responsive images from aborting capture (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+    test(`preserves responsive images and excludes noscript fallbacks (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
         const bundle = await build({
             absWorkingDir: widgetDirectory,
             bundle: true,
@@ -52,7 +52,7 @@ for (const includeIframes of [false, true]) {
             await page.locator('#run').click();
             await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.querySelector('#result').textContent));
             assert.equal(await page.locator('#result').textContent(), 'PASS',
-                'capture keeps page content, healthy pictures, the fallback, and the live DOM');
+                'capture keeps page content, healthy pictures, image fallback, and live DOM without noscript text');
         } finally {
             await browser.close();
         }

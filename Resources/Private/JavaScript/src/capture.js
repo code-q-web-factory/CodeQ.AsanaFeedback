@@ -128,8 +128,10 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         // Keep the iframe's sized shell in the layout, but leave its foreign
         // document's descendants to compositeVisibleIframes. html-to-image
         // otherwise clones them into the parent, leaking fixed elements and CSS.
+        // SVG rendering disables scripts, which would expose noscript fallbacks.
         filter: (node) => (!excludeIframeContents || node.ownerDocument === documentElement.ownerDocument) &&
             !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
+            node.nodeName !== 'NOSCRIPT' &&
             node.id !== 'elevenreader-extension-container',
         // precomputed web-font CSS; passing it (even empty) stops html-to-image
         // from scanning the live stylesheets and erroring on cross-origin sheets
