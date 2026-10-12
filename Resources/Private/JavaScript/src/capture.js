@@ -119,6 +119,7 @@ async function renderDocument(documentElement, width, height, fontEmbedCss = '',
 
 async function renderDocumentToImage(documentElement, width, height, fontEmbedCss, excludeIframeContents) {
     const objectImages = captureObjectImages(documentElement);
+    const svgStyles = captureSvgStyles(documentElement);
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -160,7 +161,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
     });
 
     const sanitizedMarkup = await sanitizeSvgMarkup(
-        decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI, objectImages
+        decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI, objectImages, svgStyles
     );
 
     return loadImage(SVG_DATA_URL_PREFIX + encodeURIComponent(sanitizedMarkup));
@@ -197,7 +198,28 @@ function captureObjectImages(documentElement) {
     return images;
 }
 
-async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages) {
+function svgStyleKey(svg) {
+    return JSON.stringify([svg.getAttribute('id'), svg.getAttribute('class'), svg.getAttribute('viewBox'),
+        Array.from(svg.querySelectorAll('path')).map(path => path.getAttribute('d'))]);
+}
+
+/** html-to-image deep-clones SVG children without their computed CSS. */
+function captureSvgStyles(documentElement) {
+    const snapshots = new Map();
+    for (const svg of documentElement.querySelectorAll('svg')) {
+        if (svg.closest('[data-codeq-feedback], #elevenreader-extension-container')) continue;
+        const key = svgStyleKey(svg);
+        const styles = Array.from(svg.querySelectorAll('*')).map(element => {
+            const style = element.ownerDocument.defaultView.getComputedStyle(element);
+            return Array.from(style).map(property => `${property}:${style.getPropertyValue(property)}`).join(';');
+        });
+        if (!snapshots.has(key)) snapshots.set(key, []);
+        snapshots.get(key).push(styles);
+    }
+    return snapshots;
+}
+
+async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles) {
     // Legacy rich text can contain control characters that XML cannot represent.
     let sanitizedMarkup = svgMarkup.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
         .replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
@@ -211,6 +233,13 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages) {
 
     // Responsive sources must not override the embedded img inside the SVG.
     if (!parsed.querySelector('parsererror')) {
+        for (const svg of parsed.querySelectorAll('foreignObject svg')) {
+            const styles = svgStyles.get(svgStyleKey(svg))?.shift();
+            const elements = Array.from(svg.querySelectorAll('*'));
+            if (styles?.length === elements.length) elements.forEach((element, index) => {
+                if (styles[index]) element.setAttribute('style', styles[index]);
+            });
+        }
         parsed.querySelectorAll('picture > source').forEach(source => source.remove());
         // SVG foreignObject cannot display HTML object images; embed an img instead.
         for (const object of parsed.querySelectorAll('object[type^="image/"][data]')) {

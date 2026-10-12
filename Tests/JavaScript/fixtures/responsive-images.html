@@ -3,6 +3,8 @@
 <head><meta charset="utf-8"><title>Responsive image capture regression</title></head>
 <body style="margin:0;background:white">
 <div id="fixture" style="width:320px;height:200px;position:relative;background:white">
+    <style>.inline-color { fill: rgb(224, 128, 32); }</style>
+    <svg viewBox="0 0 20 20" style="position:absolute;left:120px;top:100px;width:20px;height:20px"><rect class="inline-color" width="20" height="20"/></svg>
     <noscript><iframe src="/tracking" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div style="position:absolute;left:10px;top:10px;width:20px;height:20px;background:rgb(224,32,32)"></div>
     <picture style="position:absolute;left:40px;top:60px">
@@ -55,6 +57,7 @@ document.querySelector('#run').onclick = async () => {
             hiddenFallback,
             pixel(130, 70) === '32,64,224,255',
             target.querySelector('object').outerHTML === originalObjectMarkup,
+            pixel(130, 110) === '224,128,32,255',
         ];
         output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
     } catch (error) {
