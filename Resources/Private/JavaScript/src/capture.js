@@ -171,7 +171,9 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
  * values are XML-escaped by the serializer, quotes cannot occur inside.
  */
 function sanitizeSvgMarkup(svgMarkup) {
-    let sanitizedMarkup = svgMarkup.replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
+    // Legacy rich text can contain control characters that XML cannot represent.
+    let sanitizedMarkup = svgMarkup.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
+        .replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
 
     let parsed = new DOMParser().parseFromString(sanitizedMarkup, 'image/svg+xml');
     if (parsed.querySelector('parsererror')) {

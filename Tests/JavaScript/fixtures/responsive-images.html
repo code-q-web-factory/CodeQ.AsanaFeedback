@@ -21,6 +21,7 @@
 <script src="/capture.js"></script>
 <script>
 const frameMode = new URLSearchParams(location.search).get('iframe') === 'true';
+document.querySelector('#fixture').append(document.createTextNode(String.fromCharCode(3)));
 if (frameMode) {
     document.querySelector('#fixture').remove();
     const frame = document.createElement('iframe');
