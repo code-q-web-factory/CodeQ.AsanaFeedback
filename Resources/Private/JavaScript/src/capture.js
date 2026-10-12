@@ -3,6 +3,9 @@ import { toSvg } from 'html-to-image';
 import { buildFontEmbedCss } from './fonts';
 
 const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,';
+const IMAGE_PLACEHOLDER = SVG_DATA_URL_PREFIX + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="#dddddd"/></svg>'
+);
 
 /**
  * Captures the currently visible viewport as a canvas through a sanitized
@@ -132,9 +135,21 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         // from scanning the live stylesheets and erroring on cross-origin sheets
         fontEmbedCSS: fontEmbedCss,
         // external images without CORS headers would otherwise abort the capture
-        imagePlaceholder:
-            'data:image/svg+xml;charset=utf-8,' +
-            encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="#dddddd"/></svg>'),
+        imagePlaceholder: IMAGE_PLACEHOLDER,
+        onImageErrorHandler: (event) => {
+            const image = event.target;
+            if (image?.tagName !== 'IMG' || image.parentElement?.tagName !== 'PICTURE') {
+                throw event;
+            }
+            // The cloned picture's sources can override the embedded fallback.
+            // Only alter this failed clone, never the live responsive image.
+            return new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('The fallback image could not be loaded.'));
+                image.parentElement.querySelectorAll('source').forEach(source => source.remove());
+                image.src = IMAGE_PLACEHOLDER;
+            });
+        },
         // Next.js serves every optimized image through /_next/image and uses
         // only the query string to identify the source. Stripping it makes
         // unrelated images share one html-to-image cache entry.
@@ -156,10 +171,18 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
 function sanitizeSvgMarkup(svgMarkup) {
     let sanitizedMarkup = svgMarkup.replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
 
-    const parsed = new DOMParser().parseFromString(sanitizedMarkup, 'image/svg+xml');
+    let parsed = new DOMParser().parseFromString(sanitizedMarkup, 'image/svg+xml');
     if (parsed.querySelector('parsererror')) {
         // last resort: strip every attribute with an unknown namespace prefix
         sanitizedMarkup = sanitizedMarkup.replace(/\s(?!xml:|xmlns:|xmlns=|xlink:)[\w-]+:[\w.-]+="[^"]*"/g, ' ');
+        parsed = new DOMParser().parseFromString(sanitizedMarkup, 'image/svg+xml');
+    }
+
+    // Responsive sources must not override the embedded img inside the SVG.
+    const pictureSources = parsed.querySelectorAll('picture > source');
+    if (!parsed.querySelector('parsererror') && pictureSources.length > 0) {
+        pictureSources.forEach(source => source.remove());
+        return new XMLSerializer().serializeToString(parsed);
     }
 
     return sanitizedMarkup;

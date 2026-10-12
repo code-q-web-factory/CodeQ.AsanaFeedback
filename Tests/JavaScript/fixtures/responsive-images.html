@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Responsive image capture regression</title></head>
+<body style="margin:0;background:white">
+<div id="fixture" style="width:320px;height:200px;position:relative;background:white">
+    <div style="position:absolute;left:10px;top:10px;width:20px;height:20px;background:rgb(224,32,32)"></div>
+    <picture style="position:absolute;left:40px;top:60px">
+        <source srcset="/missing.svg">
+        <img id="missing" src="/missing.svg" width="30" height="20" alt="" style="display:block">
+    </picture>
+    <picture style="position:absolute;left:80px;top:60px">
+        <source srcset="/blue.svg">
+        <img src="/blue.svg" width="30" height="20" alt="" style="display:block">
+    </picture>
+</div>
+<div data-codeq-feedback style="position:fixed;left:0;top:220px">
+    <button id="run">Run capture regression</button>
+    <output id="result">Pending</output>
+</div>
+<script src="/capture.js"></script>
+<script>
+const frameMode = new URLSearchParams(location.search).get('iframe') === 'true';
+if (frameMode) {
+    document.querySelector('#fixture').remove();
+    const frame = document.createElement('iframe');
+    frame.src = '/frame';
+    frame.style.cssText = 'display:block;width:320px;height:200px;border:0';
+    document.body.prepend(frame);
+}
+document.querySelector('#run').onclick = async () => {
+    const output = document.querySelector('#result');
+    output.textContent = 'Running';
+    try {
+        const target = frameMode ? document.querySelector('iframe').contentDocument : document;
+        const image = target.querySelector('#missing');
+        const originalMarkup = image.parentElement.outerHTML;
+        const canvas = await window.captureViewport({includeIframes: frameMode});
+        const ratio = canvas.width / innerWidth;
+        const pixel = (x, y) => Array.from(canvas.getContext('2d').getImageData(
+            Math.round(x * ratio), Math.round(y * ratio), 1, 1
+        ).data).join(',');
+        const checks = [
+            pixel(20, 20) === '224,32,32,255',
+            pixel(50, 70) === '221,221,221,255',
+            pixel(90, 70) === '32,64,224,255',
+            image.parentElement.outerHTML === originalMarkup,
+        ];
+        output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
+    } catch (error) {
+        output.textContent = 'FAIL: ' + (error.message || error.type);
+    }
+};
+</script>
+</body>
+</html>

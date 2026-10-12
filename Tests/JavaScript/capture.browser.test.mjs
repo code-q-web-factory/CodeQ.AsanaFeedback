@@ -17,6 +17,49 @@ const fontFile = resolve(
 );
 
 for (const includeIframes of [false, true]) {
+    test(`keeps missing responsive images from aborting capture (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+        const bundle = await build({
+            absWorkingDir: widgetDirectory,
+            bundle: true,
+            format: 'iife',
+            platform: 'browser',
+            stdin: {
+                contents: `import { captureViewport } from ${JSON.stringify(captureModule)}; window.captureViewport = captureViewport;`,
+                resolveDir: widgetDirectory,
+            },
+            write: false,
+        });
+        const fixture = await readFile(resolve(testDirectory, 'fixtures/responsive-images.html'), 'utf8');
+        const browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage({ viewport: { width: 320, height: 260 } });
+        try {
+            await page.route('http://capture.test/**', async route => {
+                const pathname = new URL(route.request().url()).pathname;
+                if (pathname === '/capture.js') {
+                    await route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' });
+                } else if (pathname === '/missing.svg') {
+                    await route.fulfill({ status: 404, body: 'Missing image' });
+                } else if (pathname === '/blue.svg') {
+                    await route.fulfill({
+                        contentType: 'image/svg+xml',
+                        body: '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20" fill="#2040e0"/></svg>',
+                    });
+                } else {
+                    await route.fulfill({ body: fixture, contentType: 'text/html' });
+                }
+            });
+            await page.goto(`http://capture.test/?iframe=${includeIframes}`);
+            await page.locator('#run').click();
+            await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.querySelector('#result').textContent));
+            assert.equal(await page.locator('#result').textContent(), 'PASS',
+                'capture keeps page content, healthy pictures, the fallback, and the live DOM');
+        } finally {
+            await browser.close();
+        }
+    });
+}
+
+for (const includeIframes of [false, true]) {
     test(`preserves page icons with ElevenReader injected (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
         const bundle = await build({
             absWorkingDir: widgetDirectory,
