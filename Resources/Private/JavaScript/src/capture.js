@@ -133,6 +133,8 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         // otherwise clones them into the parent, leaking fixed elements and CSS.
         // SVG rendering disables scripts, which would expose noscript fallbacks.
         filter: (node) => (!excludeIframeContents || node.ownerDocument === documentElement.ownerDocument) &&
+            // HTML debug comments can contain double hyphens, which are invalid XML.
+            node.nodeType !== Node.COMMENT_NODE &&
             !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
             node.nodeName !== 'NOSCRIPT' &&
             // A zero-sized video produces an invalid data:, image in html-to-image.
@@ -294,6 +296,7 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, ze
         }
         return new XMLSerializer().serializeToString(parsed);
     }
+
 
     return sanitizedMarkup;
 }

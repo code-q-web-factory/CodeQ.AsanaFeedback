@@ -27,6 +27,7 @@
 <script>
 const frameMode = new URLSearchParams(location.search).get('iframe') === 'true';
 document.querySelector('#fixture').append(document.createTextNode(String.fromCharCode(3)));
+document.querySelector('#fixture').append(document.createComment('Fusion debug -- metadata'));
 if (frameMode) {
     document.querySelector('#fixture').remove();
     const frame = document.createElement('iframe');
