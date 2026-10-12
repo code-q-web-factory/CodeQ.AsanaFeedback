@@ -9,6 +9,7 @@
         <source srcset="/missing.svg">
         <img id="missing" src="/missing.svg" width="30" height="20" alt="" style="display:block">
     </picture>
+    <object type="image/svg+xml" data="/styled.svg" style="position:absolute;left:120px;top:60px;width:30px;height:20px">Object fallback text</object>
     <picture style="position:absolute;left:80px;top:60px">
         <source srcset="/blue.svg">
         <img src="/blue.svg" width="30" height="20" alt="" style="display:block">
@@ -36,13 +37,14 @@ document.querySelector('#run').onclick = async () => {
         const target = frameMode ? document.querySelector('iframe').contentDocument : document;
         const image = target.querySelector('#missing');
         const originalMarkup = image.parentElement.outerHTML;
+        const originalObjectMarkup = target.querySelector('object').outerHTML;
         const canvas = await window.captureViewport({includeIframes: frameMode});
         const ratio = canvas.width / innerWidth;
         const pixel = (x, y) => Array.from(canvas.getContext('2d').getImageData(
             Math.round(x * ratio), Math.round(y * ratio), 1, 1
         ).data).join(',');
         const region = canvas.getContext('2d').getImageData(
-            Math.round(140 * ratio), 0, Math.round(120 * ratio), Math.round(55 * ratio)
+            Math.round(160 * ratio), 0, Math.round(100 * ratio), Math.round(55 * ratio)
         ).data;
         const hiddenFallback = Array.from(region).every(value => value === 255);
         const checks = [
@@ -51,6 +53,8 @@ document.querySelector('#run').onclick = async () => {
             pixel(90, 70) === '32,64,224,255',
             image.parentElement.outerHTML === originalMarkup,
             hiddenFallback,
+            pixel(130, 70) === '32,64,224,255',
+            target.querySelector('object').outerHTML === originalObjectMarkup,
         ];
         output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
     } catch (error) {

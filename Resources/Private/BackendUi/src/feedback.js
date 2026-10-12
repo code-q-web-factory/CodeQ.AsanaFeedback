@@ -11,7 +11,7 @@ let widgetPromise = null;
 export async function openFeedbackWidget() {
     if (!widgetPromise) {
         const interfaceLanguage = document.documentElement.lang || 'en';
-        widgetPromise = fetch('/codeq-asana-feedback/config?locale=' + encodeURIComponent(interfaceLanguage), {
+        widgetPromise = fetch('/neos/codeq-asana-feedback/config?locale=' + encodeURIComponent(interfaceLanguage), {
             credentials: 'same-origin',
         })
             .then((response) => {

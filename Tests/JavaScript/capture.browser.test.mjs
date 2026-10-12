@@ -17,7 +17,7 @@ const fontFile = resolve(
 );
 
 for (const includeIframes of [false, true]) {
-    test(`preserves responsive images and excludes noscript fallbacks (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+    test(`preserves responsive and object images without XML control characters or noscript fallbacks (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
         const bundle = await build({
             absWorkingDir: widgetDirectory,
             bundle: true,
@@ -44,6 +44,11 @@ for (const includeIframes of [false, true]) {
                         contentType: 'image/svg+xml',
                         body: '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20" fill="#2040e0"/></svg>',
                     });
+                } else if (pathname === '/styled.svg') {
+                    await route.fulfill({ contentType: 'image/svg+xml',
+                        body: '<?xml-stylesheet type="text/css" href="/object.css"?><svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20" class="blue"/></svg>' });
+                } else if (pathname === '/object.css') {
+                    await route.fulfill({ contentType: 'text/css', body: '.blue { fill: #2040e0; }' });
                 } else {
                     await route.fulfill({ body: fixture, contentType: 'text/html' });
                 }
@@ -52,7 +57,7 @@ for (const includeIframes of [false, true]) {
             await page.locator('#run').click();
             await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.querySelector('#result').textContent));
             assert.equal(await page.locator('#result').textContent(), 'PASS',
-                'capture keeps page content, healthy pictures, image fallback, and live DOM without noscript text');
+                'capture keeps page content, picture and object images, image fallback, and live DOM without noscript text');
         } finally {
             await browser.close();
         }

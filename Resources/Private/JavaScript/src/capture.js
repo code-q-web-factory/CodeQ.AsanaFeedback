@@ -118,6 +118,7 @@ async function renderDocument(documentElement, width, height, fontEmbedCss = '',
 }
 
 async function renderDocumentToImage(documentElement, width, height, fontEmbedCss, excludeIframeContents) {
+    const objectImages = captureObjectImages(documentElement);
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -158,7 +159,9 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         includeQueryParams: true,
     });
 
-    const sanitizedMarkup = sanitizeSvgMarkup(decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)));
+    const sanitizedMarkup = await sanitizeSvgMarkup(
+        decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI, objectImages
+    );
 
     return loadImage(SVG_DATA_URL_PREFIX + encodeURIComponent(sanitizedMarkup));
 }
@@ -170,7 +173,31 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
  * the whole image would refuse to load, so they are stripped. Attribute
  * values are XML-escaped by the serializer, quotes cannot occur inside.
  */
-function sanitizeSvgMarkup(svgMarkup) {
+/** Preserve loaded SVG object styles before turning the object into an image. */
+function captureObjectImages(documentElement) {
+    const images = new Map();
+    for (const object of documentElement.querySelectorAll('object[type="image/svg+xml"][data]')) {
+        try {
+            const svg = object.contentDocument?.documentElement;
+            if (svg?.localName !== 'svg') continue;
+            const clone = svg.cloneNode(true);
+            const originals = [svg, ...svg.querySelectorAll('*')];
+            const copies = [clone, ...clone.querySelectorAll('*')];
+            originals.forEach((element, index) => {
+                const style = object.contentDocument.defaultView.getComputedStyle(element);
+                copies[index].setAttribute('style', Array.from(style)
+                    .map(property => `${property}:${style.getPropertyValue(property)}`).join(';'));
+            });
+            images.set(new URL(object.getAttribute('data'), object.ownerDocument.baseURI).href,
+                SVG_DATA_URL_PREFIX + encodeURIComponent(new XMLSerializer().serializeToString(clone)));
+        } catch (objectError) {
+            // Cross-origin objects fall back to fetching their image resource.
+        }
+    }
+    return images;
+}
+
+async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages) {
     // Legacy rich text can contain control characters that XML cannot represent.
     let sanitizedMarkup = svgMarkup.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
         .replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
@@ -183,9 +210,37 @@ function sanitizeSvgMarkup(svgMarkup) {
     }
 
     // Responsive sources must not override the embedded img inside the SVG.
-    const pictureSources = parsed.querySelectorAll('picture > source');
-    if (!parsed.querySelector('parsererror') && pictureSources.length > 0) {
-        pictureSources.forEach(source => source.remove());
+    if (!parsed.querySelector('parsererror')) {
+        parsed.querySelectorAll('picture > source').forEach(source => source.remove());
+        // SVG foreignObject cannot display HTML object images; embed an img instead.
+        for (const object of parsed.querySelectorAll('object[type^="image/"][data]')) {
+            const image = parsed.createElementNS('http://www.w3.org/1999/xhtml', 'img');
+            for (const attribute of object.attributes) {
+                if (!['data', 'type'].includes(attribute.name)) image.setAttribute(attribute.name, attribute.value);
+            }
+            let source = IMAGE_PLACEHOLDER;
+            try {
+                const url = new URL(object.getAttribute('data'), baseURI);
+                const embedded = objectImages.get(url.href);
+                if (embedded) {
+                    source = embedded;
+                } else {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('The object image could not be fetched.');
+                    const blob = await response.blob();
+                    source = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                }
+            } catch (imageError) {
+                // Missing local media uses the same fallback as regular images.
+            }
+            image.setAttribute('src', source);
+            object.replaceWith(image);
+        }
         return new XMLSerializer().serializeToString(parsed);
     }
 

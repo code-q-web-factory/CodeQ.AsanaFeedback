@@ -159,6 +159,11 @@ Nothing else needs to be wired up manually: the Fusion integration
 the authentication request pattern and the Neos backend toolbar plugin are
 all registered by the package itself.
 
+Backend requests use `/neos/codeq-asana-feedback/config` and
+`/neos/codeq-asana-feedback/prepare` so frontend-login packages recognize
+the backend session. The original `/codeq-asana-feedback/` routes remain
+available for existing integrations.
+
 ### 2. Provide the upload-grant secret
 
 Provide the relay-wide `grantSecret` from the relay's `config.php` (**not** an
