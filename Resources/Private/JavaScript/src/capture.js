@@ -229,13 +229,20 @@ function captureSvgStyles(documentElement) {
 function captureZeroFontSelectors(documentElement) {
     const selectors = new Set();
     const view = documentElement.ownerDocument.defaultView;
+    const selectorFor = element => element.localName + (element.id
+        ? `#${CSS.escape(element.id)}`
+        : Array.from(element.classList).map(name => `.${CSS.escape(name)}`).join(''));
     for (const element of documentElement.querySelectorAll('*')) {
         if (view.getComputedStyle(element).fontSize !== '0px') continue;
-        let selector = element.localName;
-        if (element.id) selector += `#${CSS.escape(element.id)}`;
-        else selector += Array.from(element.classList).map(name => `.${CSS.escape(name)}`).join('');
-        if (Array.from(documentElement.querySelectorAll(selector))
-            .every(match => view.getComputedStyle(match).fontSize === '0px')) selectors.add(selector);
+        let selector = selectorFor(element);
+        let ancestor = element.parentElement;
+        while (!Array.from(documentElement.querySelectorAll(selector))
+            .every(match => view.getComputedStyle(match).fontSize === '0px')) {
+            if (!ancestor) { selector = null; break; }
+            selector = `${selectorFor(ancestor)} > ${selector}`;
+            ancestor = ancestor.parentElement;
+        }
+        if (selector) selectors.add(selector);
     }
     return selectors;
 }
@@ -265,6 +272,7 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, ze
             });
         }
         parsed.querySelectorAll('picture > source').forEach(source => source.remove());
+        await embedExternalSvgSymbols(parsed, baseURI);
         // SVG foreignObject cannot display HTML object images; embed an img instead.
         for (const object of parsed.querySelectorAll('object[type^="image/"][data]')) {
             const image = parsed.createElementNS('http://www.w3.org/1999/xhtml', 'img');
@@ -308,4 +316,41 @@ function loadImage(source) {
         image.onerror = () => reject(new Error('The rendered page image could not be loaded.'));
         image.src = source;
     });
+}
+
+async function embedExternalSvgSymbols(parsed, baseURI) {
+    const resources = new Map();
+    let symbolIndex = 0;
+    for (const use of parsed.querySelectorAll('use')) {
+        const href = use.getAttribute('href') || use.getAttribute('xlink:href');
+        if (!href || href.startsWith('#')) continue;
+        try {
+            const url = new URL(href, baseURI);
+            if (url.origin !== new URL(baseURI).origin || !url.hash) throw new Error('Unsupported SVG symbol URL.');
+            const symbolId = decodeURIComponent(url.hash.substring(1));
+            url.hash = '';
+            if (!resources.has(url.href)) {
+                resources.set(url.href, fetch(url).then(async response => {
+                    if (!response.ok) throw new Error('The SVG sprite could not be fetched.');
+                    return new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+                }));
+            }
+            const resource = await resources.get(url.href);
+            const definition = resource.getElementById(symbolId);
+            const svg = use.closest('svg');
+            if (!definition || !svg || resource.querySelector('parsererror')) throw new Error('The SVG symbol is missing.');
+            const copy = parsed.importNode(definition, true);
+            let id;
+            do { id = `codeq-capture-symbol-${symbolIndex++}`; } while (parsed.getElementById(id));
+            copy.setAttribute('id', id);
+            const defs = parsed.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.appendChild(copy);
+            svg.appendChild(defs);
+            use.setAttribute('href', `#${id}`);
+            use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${id}`);
+        } catch (symbolError) {
+            // An unavailable icon must not prevent the rest of the page capture.
+            use.remove();
+        }
+    }
 }

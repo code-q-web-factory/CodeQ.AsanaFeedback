@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
+import svgSelectorGuard from '../../Resources/Private/JavaScript/html-to-image-svg-guard.cjs';
 import { fileURLToPath } from 'node:url';
 
 import { build } from '../../Resources/Private/JavaScript/node_modules/esbuild/lib/main.js';
@@ -28,6 +29,7 @@ for (const includeIframes of [false, true]) {
                 resolveDir: widgetDirectory,
             },
             write: false,
+            plugins: [svgSelectorGuard],
         });
         const fixture = await readFile(resolve(testDirectory, 'fixtures/responsive-images.html'), 'utf8');
         const browser = await chromium.launch({ headless: true });
@@ -46,6 +48,9 @@ for (const includeIframes of [false, true]) {
                         contentType: 'image/svg+xml',
                         body: '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20" fill="#2040e0"/></svg>',
                     });
+                } else if (pathname === '/sprite.svg') {
+                    await route.fulfill({ contentType: 'image/svg+xml',
+                        body: '<svg xmlns="http://www.w3.org/2000/svg"><symbol id="blue" viewBox="0 0 20 20"><rect width="20" height="20" fill="currentColor"/></symbol></svg>' });
                 } else if (pathname === '/styled.svg') {
                     await route.fulfill({ contentType: 'image/svg+xml',
                         body: '<?xml-stylesheet type="text/css" href="/object.css"?><svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><rect width="30" height="20" class="blue"/></svg>' });
@@ -78,6 +83,7 @@ for (const includeIframes of [false, true]) {
                 resolveDir: widgetDirectory,
             },
             write: false,
+            plugins: [svgSelectorGuard],
         });
         const browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 320, height: 200 } });
@@ -149,6 +155,7 @@ test('captures iframe text with the web font used by the live document', { timeo
             resolveDir: widgetDirectory,
         },
         write: false,
+        plugins: [svgSelectorGuard],
     });
     const font = await readFile(fontFile);
     const browser = await chromium.launch({ headless: true });
@@ -357,6 +364,7 @@ for (const inFlow of [false, true]) {
                 resolveDir: widgetDirectory,
             },
             write: false,
+            plugins: [svgSelectorGuard],
         });
         const browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ viewport: { width: 640, height: 400 } });

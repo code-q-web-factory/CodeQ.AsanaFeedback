@@ -5,8 +5,11 @@
 <div id="fixture" style="width:320px;height:200px;position:relative;background:white">
     <video src="/missing-video.mp4" style="display:none" muted></video>
     <style>.inline-color { fill: rgb(224, 128, 32); } .zero-font { font-size: 0; }</style>
-    <span class="zero-font" style="position:absolute;left:170px;top:5px">Hidden icon label</span>
+    <div class="hidden-label"><span class="zero-font" style="position:absolute;left:170px;top:5px">Hidden icon label</span></div>
+    <span class="zero-font" style="position:absolute;left:170px;top:150px;font-size:12px">Visible label</span>
     <svg viewBox="0 0 20 20" style="position:absolute;left:120px;top:100px;width:20px;height:20px"><rect class="inline-color" width="20" height="20"/></svg>
+    <svg id="external-icon" xmlns:xlink="http://www.w3.org/1999/xlink" style="position:absolute;left:200px;top:100px;width:20px;height:20px;color:rgb(32,64,224)"><use xlink:href="/sprite.svg#blue"/></svg>
+    <svg style="position:absolute;left:240px;top:100px;width:20px;height:20px"><use href="/missing.svg#icon"/></svg>
     <noscript><iframe src="/tracking" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div style="position:absolute;left:10px;top:10px;width:20px;height:20px;background:rgb(224,32,32)"></div>
     <picture style="position:absolute;left:40px;top:60px">
@@ -43,6 +46,7 @@ document.querySelector('#run').onclick = async () => {
         const image = target.querySelector('#missing');
         const originalMarkup = image.parentElement.outerHTML;
         const originalObjectMarkup = target.querySelector('object').outerHTML;
+        const originalIconMarkup = target.querySelector('#external-icon').outerHTML;
         const canvas = await window.captureViewport({includeIframes: frameMode});
         const ratio = canvas.width / innerWidth;
         const pixel = (x, y) => Array.from(canvas.getContext('2d').getImageData(
@@ -52,6 +56,13 @@ document.querySelector('#run').onclick = async () => {
             Math.round(160 * ratio), 0, Math.round(100 * ratio), Math.round(55 * ratio)
         ).data;
         const hiddenFallback = Array.from(region).every(value => value === 255);
+        const visibleRegion = canvas.getContext('2d').getImageData(
+            Math.round(160 * ratio), Math.round(145 * ratio), Math.round(120 * ratio), Math.round(30 * ratio)
+        ).data;
+        let visibleText = false;
+        for (let index = 0; index < visibleRegion.length; index += 4) {
+            if (visibleRegion[index] < 80 && visibleRegion[index + 3] === 255) visibleText = true;
+        }
         const checks = [
             pixel(20, 20) === '224,32,32,255',
             pixel(50, 70) === '221,221,221,255',
@@ -61,6 +72,9 @@ document.querySelector('#run').onclick = async () => {
             pixel(130, 70) === '32,64,224,255',
             target.querySelector('object').outerHTML === originalObjectMarkup,
             pixel(130, 110) === '224,128,32,255',
+            pixel(210, 110) === '32,64,224,255',
+            target.querySelector('#external-icon').outerHTML === originalIconMarkup,
+            visibleText,
         ];
         output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
     } catch (error) {

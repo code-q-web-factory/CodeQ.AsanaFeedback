@@ -11,5 +11,6 @@ esbuild.build({
     loader: { '.js': 'jsx' },
     alias: require('@neos-project/neos-ui-extensibility/extensibilityMap.json'),
     legalComments: 'linked',
+    plugins: [require('../JavaScript/html-to-image-svg-guard.cjs')],
     outdir: '../../Public/Backend',
 });

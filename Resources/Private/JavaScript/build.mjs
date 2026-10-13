@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import svgSelectorGuard from './html-to-image-svg-guard.cjs';
 
 // Bundles the widget into self-contained assets that are committed to
 // Resources/Public, so deployments do not need a node build step.
@@ -10,6 +11,7 @@ await esbuild.build({
     target: ['chrome100', 'firefox100', 'safari15', 'edge100'],
     outfile: '../../Public/Scripts/Widget.js',
     legalComments: 'linked',
+    plugins: [svgSelectorGuard],
 });
 
 await esbuild.build({
