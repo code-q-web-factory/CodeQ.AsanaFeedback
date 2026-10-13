@@ -92,6 +92,8 @@ for (const includeIframes of [false, true]) {
             await page.route('http://capture.test/**', async route => {
                 if (new URL(route.request().url()).pathname === '/capture.js') {
                     await route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' });
+                } else if (new URL(route.request().url()).pathname === '/invalid-image') {
+                    await route.fulfill({ status: 400, body: 'Invalid optimized image', contentType: 'text/plain' });
                 } else {
                     await route.fulfill({ body: fixture, contentType: 'text/html' });
                 }

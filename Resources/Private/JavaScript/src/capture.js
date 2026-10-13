@@ -149,7 +149,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
         imagePlaceholder: IMAGE_PLACEHOLDER,
         onImageErrorHandler: (event) => {
             const image = event.target;
-            if (image?.tagName !== 'IMG' || image.parentElement?.tagName !== 'PICTURE') {
+            if (image?.tagName !== 'IMG') {
                 throw event;
             }
             // The cloned picture's sources can override the embedded fallback.
@@ -157,7 +157,10 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
             return new Promise((resolve, reject) => {
                 image.onload = resolve;
                 image.onerror = () => reject(new Error('The fallback image could not be loaded.'));
-                image.parentElement.querySelectorAll('source').forEach(source => source.remove());
+                if (image.parentElement?.tagName === 'PICTURE') {
+                    image.parentElement.querySelectorAll('source').forEach(source => source.remove());
+                }
+                image.srcset = '';
                 image.src = IMAGE_PLACEHOLDER;
             });
         },

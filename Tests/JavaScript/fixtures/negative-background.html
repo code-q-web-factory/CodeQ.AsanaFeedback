@@ -6,6 +6,7 @@
     <h1 style="margin:0;padding:20px">Visible title</h1>
 </section>
 <nextjs-portal style="position:fixed;left:0;top:90px;width:30px;height:30px;background:red;z-index:99999">Dev tools</nextjs-portal>
+<img src="/invalid-image" width="20" height="20" style="position:absolute;left:50px;top:90px" alt="Missing optimized image">
 <div data-codeq-feedback><button id="run">Run background capture regression</button><output id="result">Pending</output></div>
 <script src="/capture.js"></script>
 <script>
@@ -22,10 +23,14 @@ document.querySelector('#run').onclick = async () => {
     try {
         const target = frameMode ? document.querySelector('iframe').contentWindow : window;
         const original = target.document.querySelector('#fixture').outerHTML;
+        const originalImage = target.document.querySelector('img').outerHTML;
         const canvas = await window.captureViewport({includeIframes:frameMode});
         const ratio = canvas.width / innerWidth;
-        const pixel = Array.from(canvas.getContext('2d').getImageData(10 * ratio,100 * ratio,1,1).data).join(',');
-        output.textContent = pixel === '32,192,64,255' && target.document.querySelector('#fixture').outerHTML === original ? 'PASS' : 'FAIL: '+pixel;
+        const pixel = (x,y) => Array.from(canvas.getContext('2d').getImageData(x * ratio,y * ratio,1,1).data).join(',');
+        const checks = [pixel(10,100) === '32,192,64,255', pixel(60,100) === '221,221,221,255',
+            target.document.querySelector('#fixture').outerHTML === original,
+            target.document.querySelector('img').outerHTML === originalImage];
+        output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: '+JSON.stringify(checks);
     } catch (error) { output.textContent = 'FAIL: '+error.message; }
 };
 </script></body></html>
