@@ -304,6 +304,18 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, ze
 
     // Responsive sources must not override the embedded img inside the SVG.
     if (!parsed.querySelector('parsererror')) {
+        // A foreignObject's nested HTML does not propagate the body background
+        // to the viewport; otherwise negative-z-index page backgrounds disappear.
+        const html = parsed.querySelector('foreignObject html');
+        const body = html?.querySelector('body');
+        if (html && body && ['transparent', 'rgba(0, 0, 0, 0)', ''].includes(html.style.backgroundColor) &&
+            (!html.style.backgroundImage || html.style.backgroundImage === 'none')) {
+            for (const property of ['color', 'image', 'position', 'size', 'repeat', 'attachment', 'origin', 'clip']) {
+                html.style.setProperty(`background-${property}`, body.style.getPropertyValue(`background-${property}`));
+            }
+            body.style.backgroundColor = 'transparent';
+            body.style.backgroundImage = 'none';
+        }
         // The full-page SVG has no scroll offset and a taller fixed-position viewport.
         for (const [selector, insets] of fixedPositions) {
             for (const element of parsed.querySelectorAll(selector)) {

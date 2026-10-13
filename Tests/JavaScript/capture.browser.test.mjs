@@ -71,8 +71,12 @@ for (const includeIframes of [false, true]) {
     });
 }
 
+for (const [fixtureName, routeName, behavior] of [
+    ['scrolled-fixed', 'fixed', 'fixed elements after scrolling'],
+    ['negative-background', 'negative', 'negative-z-index backgrounds'],
+]) {
 for (const includeIframes of [false, true]) {
-    test(`preserves fixed elements after scrolling (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+    test(`preserves ${behavior} (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
         const bundle = await build({
             absWorkingDir: widgetDirectory, bundle: true, format: 'iife', platform: 'browser',
             stdin: {
@@ -81,7 +85,7 @@ for (const includeIframes of [false, true]) {
             },
             write: false, plugins: [svgSelectorGuard],
         });
-        const fixture = await readFile(resolve(testDirectory, 'fixtures/scrolled-fixed.html'), 'utf8');
+        const fixture = await readFile(resolve(testDirectory, `fixtures/${fixtureName}.html`), 'utf8');
         const browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ viewport: { width: 320, height: 260 } });
         try {
@@ -92,15 +96,16 @@ for (const includeIframes of [false, true]) {
                     await route.fulfill({ body: fixture, contentType: 'text/html' });
                 }
             });
-            await page.goto(`http://capture.test/fixed?iframe=${includeIframes}`);
+            await page.goto(`http://capture.test/${routeName}?iframe=${includeIframes}`);
             await page.locator('#run').click();
             await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.querySelector('#result').textContent));
             assert.equal(await page.locator('#result').textContent(), 'PASS',
-                'fixed header, footer and right badge stay in the viewport; transformed parents and live DOM stay unchanged');
+                `${behavior} stay visible and the live DOM stays unchanged`);
         } finally {
             await browser.close();
         }
     });
+}
 }
 
 for (const includeIframes of [false, true]) {

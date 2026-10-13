@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Negative background capture regression</title></head>
+<body style="margin:0;background:white">
+<section id="fixture" style="position:relative;height:160px;color:white">
+    <div style="position:absolute;inset:0;z-index:-1;background:#20c040"></div>
+    <h1 style="margin:0;padding:20px">Visible title</h1>
+</section>
+<div data-codeq-feedback><button id="run">Run background capture regression</button><output id="result">Pending</output></div>
+<script src="/capture.js"></script>
+<script>
+const frameMode = new URLSearchParams(location.search).get('iframe') === 'true';
+if (frameMode) {
+    document.querySelector('#fixture').remove();
+    const frame = document.createElement('iframe');
+    frame.src = '/negative';
+    frame.style.cssText = 'display:block;width:320px;height:200px;border:0';
+    document.body.prepend(frame);
+}
+document.querySelector('#run').onclick = async () => {
+    const output = document.querySelector('#result');
+    try {
+        const target = frameMode ? document.querySelector('iframe').contentWindow : window;
+        const original = target.document.querySelector('#fixture').outerHTML;
+        const canvas = await window.captureViewport({includeIframes:frameMode});
+        const ratio = canvas.width / innerWidth;
+        const pixel = Array.from(canvas.getContext('2d').getImageData(10 * ratio,100 * ratio,1,1).data).join(',');
+        output.textContent = pixel === '32,192,64,255' && target.document.querySelector('#fixture').outerHTML === original ? 'PASS' : 'FAIL: '+pixel;
+    } catch (error) { output.textContent = 'FAIL: '+error.message; }
+};
+</script></body></html>
