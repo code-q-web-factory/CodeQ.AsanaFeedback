@@ -72,6 +72,38 @@ for (const includeIframes of [false, true]) {
 }
 
 for (const includeIframes of [false, true]) {
+    test(`preserves fixed elements after scrolling (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
+        const bundle = await build({
+            absWorkingDir: widgetDirectory, bundle: true, format: 'iife', platform: 'browser',
+            stdin: {
+                contents: `import { captureViewport } from ${JSON.stringify(captureModule)}; window.captureViewport = captureViewport;`,
+                resolveDir: widgetDirectory,
+            },
+            write: false, plugins: [svgSelectorGuard],
+        });
+        const fixture = await readFile(resolve(testDirectory, 'fixtures/scrolled-fixed.html'), 'utf8');
+        const browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage({ viewport: { width: 320, height: 260 } });
+        try {
+            await page.route('http://capture.test/**', async route => {
+                if (new URL(route.request().url()).pathname === '/capture.js') {
+                    await route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' });
+                } else {
+                    await route.fulfill({ body: fixture, contentType: 'text/html' });
+                }
+            });
+            await page.goto(`http://capture.test/fixed?iframe=${includeIframes}`);
+            await page.locator('#run').click();
+            await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.querySelector('#result').textContent));
+            assert.equal(await page.locator('#result').textContent(), 'PASS',
+                'fixed header, footer and right badge stay in the viewport; transformed parents and live DOM stay unchanged');
+        } finally {
+            await browser.close();
+        }
+    });
+}
+
+for (const includeIframes of [false, true]) {
     test(`preserves page icons with ElevenReader injected (${includeIframes ? 'iframe' : 'document'})`, { timeout: 15000 }, async () => {
         const bundle = await build({
             absWorkingDir: widgetDirectory,

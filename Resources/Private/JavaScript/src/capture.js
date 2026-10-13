@@ -121,6 +121,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
     const objectImages = captureObjectImages(documentElement);
     const svgStyles = captureSvgStyles(documentElement);
     const zeroFontSelectors = captureZeroFontSelectors(documentElement);
+    const fixedPositions = captureFixedPositions(documentElement, width, height);
     const svgDataUrl = await toSvg(documentElement, {
         width,
         height,
@@ -167,7 +168,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
 
     const sanitizedMarkup = await sanitizeSvgMarkup(
         decodeURIComponent(svgDataUrl.substring(SVG_DATA_URL_PREFIX.length)), documentElement.ownerDocument.baseURI,
-        objectImages, svgStyles, zeroFontSelectors
+        objectImages, svgStyles, zeroFontSelectors, fixedPositions
     );
 
     return loadImage(SVG_DATA_URL_PREFIX + encodeURIComponent(sanitizedMarkup));
@@ -247,7 +248,49 @@ function captureZeroFontSelectors(documentElement) {
     return selectors;
 }
 
-async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, zeroFontSelectors) {
+function captureFixedPositions(documentElement, width, height) {
+    const positions = new Map();
+    const view = documentElement.ownerDocument.defaultView;
+    const offsets = {
+        top: view.scrollY, left: view.scrollX,
+        bottom: height - documentElement.clientHeight - view.scrollY,
+        right: width - documentElement.clientWidth - view.scrollX,
+    };
+    const selectorFor = element => element.localName + (element.id
+        ? `#${CSS.escape(element.id)}`
+        : Array.from(element.classList).map(name => `.${CSS.escape(name)}`).join(''));
+    for (const element of documentElement.querySelectorAll('*')) {
+        const style = view.getComputedStyle(element);
+        if (style.position !== 'fixed' || element.closest('[data-codeq-feedback], #elevenreader-extension-container')) continue;
+        let ancestor = element.parentElement;
+        let transformedParent = false;
+        while (ancestor) {
+            const parentStyle = view.getComputedStyle(ancestor);
+            if (parentStyle.transform !== 'none' || parentStyle.perspective !== 'none' || parentStyle.filter !== 'none') {
+                transformedParent = true;
+                break;
+            }
+            ancestor = ancestor.parentElement;
+        }
+        if (transformedParent) continue;
+        let selector = selectorFor(element);
+        ancestor = element.parentElement;
+        while (documentElement.querySelectorAll(selector).length > 1 && ancestor) {
+            selector = `${selectorFor(ancestor)} > ${selector}`;
+            ancestor = ancestor.parentElement;
+        }
+        if (documentElement.querySelectorAll(selector).length !== 1) continue;
+        const insets = {};
+        for (const [property, offset] of Object.entries(offsets)) {
+            const value = Number.parseFloat(style.getPropertyValue(property));
+            if (Number.isFinite(value)) insets[property] = `${value + offset}px`;
+        }
+        positions.set(selector, insets);
+    }
+    return positions;
+}
+
+async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, zeroFontSelectors, fixedPositions) {
     // Legacy rich text can contain control characters that XML cannot represent.
     let sanitizedMarkup = svgMarkup.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
         .replace(/\s(?:x-[\w-]+:|@|:)[^\s=]*="[^"]*"/g, ' ');
@@ -261,6 +304,12 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, ze
 
     // Responsive sources must not override the embedded img inside the SVG.
     if (!parsed.querySelector('parsererror')) {
+        // The full-page SVG has no scroll offset and a taller fixed-position viewport.
+        for (const [selector, insets] of fixedPositions) {
+            for (const element of parsed.querySelectorAll(selector)) {
+                for (const [property, value] of Object.entries(insets)) element.style?.setProperty(property, value);
+            }
+        }
         for (const selector of zeroFontSelectors) {
             parsed.querySelectorAll(selector).forEach(element => element.style?.setProperty('font-size', '0px'));
         }

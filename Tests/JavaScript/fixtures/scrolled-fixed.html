@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Scrolled fixed element capture regression</title></head>
+<body style="margin:0;height:1600px;background:white">
+<div id="fixture">
+    <div id="fixed-header" style="position:fixed;top:0;left:0;width:100%;height:40px;background:#e02020"></div>
+    <div id="fixed-footer" style="position:fixed;bottom:0;left:0;width:100%;height:40px;background:#2040e0"></div>
+    <div id="fixed-badge" style="position:fixed;top:100px;right:0;width:20px;height:20px;background:#20c040"></div>
+    <div style="position:absolute;left:100px;top:240px;width:20px;height:20px;background:#e08020"></div>
+    <div style="position:absolute;left:160px;top:240px;width:20px;height:20px;transform:translateX(0)"><div style="position:fixed;top:0;left:0;width:20px;height:20px;background:#e0c020"></div></div>
+</div>
+<div data-codeq-feedback style="position:fixed;left:4px;top:70px">
+    <button id="run">Run scrolled capture regression</button>
+    <output id="result">Pending</output>
+</div>
+<script src="/capture.js"></script>
+<script>
+const frameMode = new URLSearchParams(location.search).get('iframe') === 'true';
+if (frameMode) {
+    document.querySelector('#fixture').remove();
+    document.body.style.height = '260px';
+    const frame = document.createElement('iframe');
+    frame.src = '/fixed';
+    frame.style.cssText = 'display:block;width:320px;height:200px;border:0';
+    document.body.prepend(frame);
+}
+document.querySelector('#run').onclick = async () => {
+    const output = document.querySelector('#result');
+    output.textContent = 'Running';
+    try {
+        const target = frameMode ? document.querySelector('iframe').contentWindow : window;
+        target.scrollTo(0, 200);
+        await new Promise(resolve => target.requestAnimationFrame(() => target.requestAnimationFrame(resolve)));
+        const original = target.document.querySelector('#fixture').outerHTML;
+        const canvas = await window.captureViewport({includeIframes: frameMode});
+        const ratio = canvas.width / innerWidth;
+        const pixel = (x, y) => Array.from(canvas.getContext('2d').getImageData(
+            Math.round(x * ratio), Math.round(y * ratio), 1, 1
+        ).data).join(',');
+        const checks = [
+            pixel(20, 20) === '224,32,32,255',
+            pixel(20, target.innerHeight - 20) === '32,64,224,255',
+            pixel(110, 50) === '224,128,32,255',
+            pixel(target.document.documentElement.clientWidth - 10, 110) === '32,192,64,255',
+            pixel(170, 50) === '224,192,32,255',
+            target.document.querySelector('#fixture').outerHTML === original,
+        ];
+        output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: ' + JSON.stringify(checks);
+    } catch (error) {
+        output.textContent = 'FAIL: ' + (error.message || error.type);
+    }
+};
+</script>
+</body>
+</html>
