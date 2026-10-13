@@ -1,5 +1,6 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Negative background capture regression</title></head>
+<html><head><meta charset="utf-8"><title>Negative background capture regression</title>
+<style>#pseudo::before { content: ''; position:absolute; inset:0; background:url('/blue.svg'); }</style></head>
 <body style="margin:0;background:white">
 <section id="fixture" style="position:relative;height:160px;color:white">
     <div style="position:absolute;inset:0;z-index:-1;background:#20c040"></div>
@@ -7,6 +8,7 @@
 </section>
 <nextjs-portal style="position:fixed;left:0;top:90px;width:30px;height:30px;background:red;z-index:99999">Dev tools</nextjs-portal>
 <img src="/invalid-image" width="20" height="20" style="position:absolute;left:50px;top:90px" alt="Missing optimized image">
+<div id="pseudo" style="position:absolute;left:80px;top:90px;width:20px;height:20px"></div>
 <div data-codeq-feedback><button id="run">Run background capture regression</button><output id="result">Pending</output></div>
 <script src="/capture.js"></script>
 <script>
@@ -28,6 +30,7 @@ document.querySelector('#run').onclick = async () => {
         const ratio = canvas.width / innerWidth;
         const pixel = (x,y) => Array.from(canvas.getContext('2d').getImageData(x * ratio,y * ratio,1,1).data).join(',');
         const checks = [pixel(10,100) === '32,192,64,255', pixel(60,100) === '221,221,221,255',
+            pixel(90,100) === '32,64,224,255',
             target.document.querySelector('#fixture').outerHTML === original,
             target.document.querySelector('img').outerHTML === originalImage];
         output.textContent = checks.every(Boolean) ? 'PASS' : 'FAIL: '+JSON.stringify(checks);

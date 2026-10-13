@@ -1,4 +1,5 @@
 import { toSvg } from 'html-to-image';
+import { embedResources } from 'html-to-image/lib/embed-resources';
 
 import { buildFontEmbedCss } from './fonts';
 
@@ -308,6 +309,12 @@ async function sanitizeSvgMarkup(svgMarkup, baseURI, objectImages, svgStyles, ze
 
     // Responsive sources must not override the embedded img inside the SVG.
     if (!parsed.querySelector('parsererror')) {
+        // html-to-image clones pseudo-element CSS but leaves its image URLs external.
+        for (const style of parsed.querySelectorAll('foreignObject style')) {
+            style.textContent = await embedResources(style.textContent, baseURI, {
+                imagePlaceholder: IMAGE_PLACEHOLDER, includeQueryParams: true,
+            });
+        }
         // A foreignObject's nested HTML does not propagate the body background
         // to the viewport; otherwise negative-z-index page backgrounds disappear.
         const html = parsed.querySelector('foreignObject html');
