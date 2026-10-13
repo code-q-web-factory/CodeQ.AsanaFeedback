@@ -138,6 +138,7 @@ async function renderDocumentToImage(documentElement, width, height, fontEmbedCs
             node.nodeType !== Node.COMMENT_NODE &&
             !(node.dataset && node.dataset.codeqFeedback !== undefined) &&
             node.nodeName !== 'NOSCRIPT' &&
+            node.nodeName !== 'NEXTJS-PORTAL' &&
             // A zero-sized video produces an invalid data:, image in html-to-image.
             (node.nodeName !== 'VIDEO' || (node.clientWidth > 0 && node.clientHeight > 0)) &&
             node.id !== 'elevenreader-extension-container',
